@@ -5,8 +5,8 @@ from fastapi import APIRouter, Header, HTTPException
 from core.errors import InvalidParamsError, UpstreamError
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.B_vision_classifier.schemas import VisionClassifierInput, VisionClassifierOutput
-from SKILLS.B_vision_classifier.service import VisionClassifierSkill
+from .schemas import VisionClassifierInput, VisionClassifierOutput
+from .service import VisionClassifierSkill
 
 logger = logging.getLogger(__name__)
 

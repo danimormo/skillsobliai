@@ -5,8 +5,8 @@ from fastapi import APIRouter, Header, HTTPException
 from core.errors import InvalidApiKeyError, InvalidParamsError, UpstreamError
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.01_meta_ads_researcher.schemas import MetaAdsResearchInput, MetaAdsResearchOutput
-from SKILLS.01_meta_ads_researcher.service import MetaAdsResearcherSkill
+from .schemas import MetaAdsResearchInput, MetaAdsResearchOutput
+from .service import MetaAdsResearcherSkill
 
 logger = logging.getLogger(__name__)
 

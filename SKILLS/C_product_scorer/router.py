@@ -5,8 +5,8 @@ from fastapi import APIRouter, Header, HTTPException
 from core.errors import InvalidParamsError
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.C_product_scorer.schemas import ProductScorerInput, ProductScorerOutput
-from SKILLS.C_product_scorer.service import ProductScorerSkill
+from .schemas import ProductScorerInput, ProductScorerOutput
+from .service import ProductScorerSkill
 
 logger = logging.getLogger(__name__)
 

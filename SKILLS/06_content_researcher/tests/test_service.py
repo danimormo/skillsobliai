@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import importlib
+
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from core.skill_interface import SkillContext
-from SKILLS.06_content_researcher.schemas import ContentResearchInput
-from SKILLS.06_content_researcher.service import (
-    ContentResearcherSkill,
-    _classify_format_type,
-    _classify_creative_angle,
-    _extract_hook,
-)
+
+_schemas = importlib.import_module("SKILLS.06_content_researcher.schemas")
+ContentResearchInput = _schemas.ContentResearchInput
+
+_service = importlib.import_module("SKILLS.06_content_researcher.service")
+ContentResearcherSkill = _service.ContentResearcherSkill
+_classify_format_type = _service._classify_format_type
+_classify_creative_angle = _service._classify_creative_angle
+_extract_hook = _service._extract_hook
 
 
 @pytest.fixture

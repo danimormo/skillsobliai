@@ -10,8 +10,8 @@ from core.errors import (
 )
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.08_product_importer.schemas import ProductImportInput, ProductImportOutput
-from SKILLS.08_product_importer.service import ProductImporterSkill
+from .schemas import ProductImportInput, ProductImportOutput
+from .service import ProductImporterSkill
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,7 @@
 """Tests for the supplier-researcher router."""
 
+import importlib
+
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -7,8 +9,13 @@ from httpx import ASGITransport, AsyncClient
 from fastapi import FastAPI
 
 from core.skill_interface import SkillResult
-from SKILLS.07_supplier_researcher.router import router
-from SKILLS.07_supplier_researcher.schemas import SupplierResearchOutput, SupplierProduct
+
+_router_mod = importlib.import_module("SKILLS.07_supplier_researcher.router")
+router = _router_mod.router
+
+_schemas = importlib.import_module("SKILLS.07_supplier_researcher.schemas")
+SupplierResearchOutput = _schemas.SupplierResearchOutput
+SupplierProduct = _schemas.SupplierProduct
 
 app = FastAPI()
 app.include_router(router)

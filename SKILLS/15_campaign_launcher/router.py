@@ -5,8 +5,8 @@ from fastapi import APIRouter, Header, HTTPException
 from core.errors import IntegrationNotConnectedError, InvalidParamsError, ManusError, ManusTimeoutError, MetaAPIError
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.15_campaign_launcher.schemas import CampaignLauncherInput, CampaignLauncherOutput
-from SKILLS.15_campaign_launcher.service import CampaignLauncherSkill
+from .schemas import CampaignLauncherInput, CampaignLauncherOutput
+from .service import CampaignLauncherSkill
 
 logger = logging.getLogger(__name__)
 

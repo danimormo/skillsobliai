@@ -1,11 +1,16 @@
+import importlib
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from fastapi import FastAPI
 
-from SKILLS.08_product_importer.router import router
-from SKILLS.08_product_importer.schemas import ProductImportOutput
+_router_mod = importlib.import_module("SKILLS.08_product_importer.router")
+router = _router_mod.router
+
+_schemas = importlib.import_module("SKILLS.08_product_importer.schemas")
+ProductImportOutput = _schemas.ProductImportOutput
+
 from core.skill_interface import SkillResult
 
 app = FastAPI()

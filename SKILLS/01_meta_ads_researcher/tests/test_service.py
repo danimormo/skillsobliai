@@ -1,10 +1,15 @@
 import asyncio
+import importlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from SKILLS.01_meta_ads_researcher.schemas import MetaAdsResearchInput
-from SKILLS.01_meta_ads_researcher.service import MetaAdsResearcherSkill
+_schemas = importlib.import_module("SKILLS.01_meta_ads_researcher.schemas")
+MetaAdsResearchInput = _schemas.MetaAdsResearchInput
+
+_service = importlib.import_module("SKILLS.01_meta_ads_researcher.service")
+MetaAdsResearcherSkill = _service.MetaAdsResearcherSkill
+
 from core.skill_interface import SkillContext
 
 

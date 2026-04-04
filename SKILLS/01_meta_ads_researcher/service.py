@@ -7,8 +7,8 @@ from core.errors import InvalidParamsError
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
 from core.supabase_client import get_supabase
 
-from SKILLS.01_meta_ads_researcher import api_client, cache
-from SKILLS.01_meta_ads_researcher.schemas import (
+from . import api_client, cache
+from .schemas import (
     MetaAd,
     MetaAdsResearchInput,
     MetaAdsResearchOutput,

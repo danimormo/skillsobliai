@@ -6,8 +6,8 @@ from core.errors import InvalidParamsError
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
 from core.supabase_client import get_supabase
 
-from SKILLS.B_vision_classifier import api_client
-from SKILLS.B_vision_classifier.schemas import (
+from . import api_client
+from .schemas import (
     ClassifiedItem,
     ImageItem,
     VisionClassifierInput,

@@ -10,8 +10,8 @@ from core.errors import (
 )
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.06_content_researcher.schemas import ContentResearchInput, ContentResearchOutput
-from SKILLS.06_content_researcher.service import ContentResearcherSkill
+from .schemas import ContentResearchInput, ContentResearchOutput
+from .service import ContentResearcherSkill
 
 logger = logging.getLogger(__name__)
 

@@ -1,10 +1,15 @@
+import importlib
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from core.skill_interface import SkillContext
 
-from SKILLS.03_kalodata_ripper.schemas import KalodataRipperInput
-from SKILLS.03_kalodata_ripper.service import KalodataRipperSkill
+_schemas = importlib.import_module("SKILLS.03_kalodata_ripper.schemas")
+KalodataRipperInput = _schemas.KalodataRipperInput
+
+_service = importlib.import_module("SKILLS.03_kalodata_ripper.service")
+KalodataRipperSkill = _service.KalodataRipperSkill
 
 
 def _make_ctx(user_id: str = "user-1") -> SkillContext:

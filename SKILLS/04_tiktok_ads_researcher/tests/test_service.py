@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import importlib
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from core.skill_interface import SkillContext
-from SKILLS.04_tiktok_ads_researcher.schemas import (
-    TikTokAdsResearchInput,
-    TikTokAdsResearchOutput,
-)
-from SKILLS.04_tiktok_ads_researcher.service import TikTokAdsResearcherSkill
+
+_schemas = importlib.import_module("SKILLS.04_tiktok_ads_researcher.schemas")
+TikTokAdsResearchInput = _schemas.TikTokAdsResearchInput
+TikTokAdsResearchOutput = _schemas.TikTokAdsResearchOutput
+
+_service = importlib.import_module("SKILLS.04_tiktok_ads_researcher.service")
+TikTokAdsResearcherSkill = _service.TikTokAdsResearcherSkill
 
 
 def _make_ctx(user_id: str = "user-1") -> SkillContext:

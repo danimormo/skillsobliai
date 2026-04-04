@@ -5,8 +5,8 @@ from fastapi import APIRouter, Header, HTTPException
 from core.errors import InvalidApiKeyError, InvalidParamsError, RateLimitError, UpstreamError
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.05_google_researcher.schemas import GoogleResearchInput, GoogleResearchOutput
-from SKILLS.05_google_researcher.service import GoogleResearcherSkill
+from .schemas import GoogleResearchInput, GoogleResearchOutput
+from .service import GoogleResearcherSkill
 
 logger = logging.getLogger(__name__)
 

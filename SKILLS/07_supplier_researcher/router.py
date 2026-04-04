@@ -5,8 +5,8 @@ from fastapi import APIRouter, Header, HTTPException
 from core.errors import InvalidApiKeyError, InvalidParamsError, RateLimitError, UpstreamError
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.07_supplier_researcher.schemas import SupplierResearchInput, SupplierResearchOutput
-from SKILLS.07_supplier_researcher.service import SupplierResearcherSkill
+from .schemas import SupplierResearchInput, SupplierResearchOutput
+from .service import SupplierResearcherSkill
 
 logger = logging.getLogger(__name__)
 

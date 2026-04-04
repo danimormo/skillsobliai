@@ -1,9 +1,14 @@
+import importlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from SKILLS.16_campaign_validator.schemas import CampaignValidatorInput
-from SKILLS.16_campaign_validator.service import CampaignValidatorSkill
+_schemas = importlib.import_module("SKILLS.16_campaign_validator.schemas")
+CampaignValidatorInput = _schemas.CampaignValidatorInput
+
+_service = importlib.import_module("SKILLS.16_campaign_validator.service")
+CampaignValidatorSkill = _service.CampaignValidatorSkill
+
 from core.errors import IntegrationNotConnectedError
 from core.skill_interface import SkillContext
 

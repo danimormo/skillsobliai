@@ -7,8 +7,8 @@ from core.errors import InvalidParamsError
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
 from core.supabase_client import get_supabase
 
-from SKILLS.A_prompt_parser import api_client, cache
-from SKILLS.A_prompt_parser.schemas import (
+from . import api_client, cache
+from .schemas import (
     ParsedParams,
     PromptParserInput,
     PromptParserOutput,

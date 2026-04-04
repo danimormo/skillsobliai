@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib
+
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -7,8 +9,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from core.skill_interface import SkillResult
-from SKILLS.04_tiktok_ads_researcher.router import router
-from SKILLS.04_tiktok_ads_researcher.schemas import TikTokAdsResearchOutput
+
+_router_mod = importlib.import_module("SKILLS.04_tiktok_ads_researcher.router")
+router = _router_mod.router
+
+_schemas = importlib.import_module("SKILLS.04_tiktok_ads_researcher.schemas")
+TikTokAdsResearchOutput = _schemas.TikTokAdsResearchOutput
 
 app = FastAPI()
 app.include_router(router)

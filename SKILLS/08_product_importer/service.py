@@ -6,8 +6,8 @@ from core.errors import IntegrationNotConnectedError, InvalidParamsError, Upstre
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
 from core.supabase_client import get_supabase
 
-from SKILLS.08_product_importer.api_client import ShopifyClient
-from SKILLS.08_product_importer.schemas import (
+from .api_client import ShopifyClient
+from .schemas import (
     ProductImportInput,
     ProductImportOutput,
 )

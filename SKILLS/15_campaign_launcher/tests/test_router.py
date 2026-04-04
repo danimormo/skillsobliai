@@ -1,11 +1,16 @@
+import importlib
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from SKILLS.15_campaign_launcher.router import router
-from SKILLS.15_campaign_launcher.schemas import CampaignLauncherOutput
+_router_mod = importlib.import_module("SKILLS.15_campaign_launcher.router")
+router = _router_mod.router
+
+_schemas = importlib.import_module("SKILLS.15_campaign_launcher.schemas")
+CampaignLauncherOutput = _schemas.CampaignLauncherOutput
+
 from core.skill_interface import SkillResult
 
 app = FastAPI()

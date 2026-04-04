@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import importlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from core.skill_interface import SkillContext
-from SKILLS.05_google_researcher.schemas import GoogleResearchInput
-from SKILLS.05_google_researcher.service import GoogleResearcherSkill
+
+_schemas = importlib.import_module("SKILLS.05_google_researcher.schemas")
+GoogleResearchInput = _schemas.GoogleResearchInput
+
+_service = importlib.import_module("SKILLS.05_google_researcher.service")
+GoogleResearcherSkill = _service.GoogleResearcherSkill
 
 SKILL = GoogleResearcherSkill()
 

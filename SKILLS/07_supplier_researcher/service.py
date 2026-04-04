@@ -6,8 +6,8 @@ from core.errors import InvalidParamsError
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
 from core.supabase_client import get_supabase
 
-from SKILLS.07_supplier_researcher import api_client, cache
-from SKILLS.07_supplier_researcher.schemas import (
+from . import api_client, cache
+from .schemas import (
     SupplierProduct,
     SupplierResearchInput,
     SupplierResearchOutput,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -9,8 +10,12 @@ from httpx import ASGITransport, AsyncClient
 from fastapi import FastAPI
 
 from core.skill_interface import SkillResult
-from SKILLS.05_google_researcher.router import router
-from SKILLS.05_google_researcher.schemas import GoogleResearchOutput
+
+_router_mod = importlib.import_module("SKILLS.05_google_researcher.router")
+router = _router_mod.router
+
+_schemas = importlib.import_module("SKILLS.05_google_researcher.schemas")
+GoogleResearchOutput = _schemas.GoogleResearchOutput
 
 app = FastAPI()
 app.include_router(router)

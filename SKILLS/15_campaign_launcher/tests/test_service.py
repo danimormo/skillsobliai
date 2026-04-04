@@ -1,9 +1,14 @@
+import importlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from SKILLS.15_campaign_launcher.schemas import CampaignLauncherInput
-from SKILLS.15_campaign_launcher.service import CampaignLauncherSkill
+_schemas = importlib.import_module("SKILLS.15_campaign_launcher.schemas")
+CampaignLauncherInput = _schemas.CampaignLauncherInput
+
+_service = importlib.import_module("SKILLS.15_campaign_launcher.service")
+CampaignLauncherSkill = _service.CampaignLauncherSkill
+
 from core.errors import IntegrationNotConnectedError, InvalidParamsError
 from core.skill_interface import SkillContext
 

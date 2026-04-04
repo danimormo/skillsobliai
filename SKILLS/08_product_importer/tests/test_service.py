@@ -1,10 +1,15 @@
+import importlib
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from SKILLS.08_product_importer.schemas import ProductImportInput
-from SKILLS.08_product_importer.service import ProductImporterSkill
+_schemas = importlib.import_module("SKILLS.08_product_importer.schemas")
+ProductImportInput = _schemas.ProductImportInput
+
+_service = importlib.import_module("SKILLS.08_product_importer.service")
+ProductImporterSkill = _service.ProductImporterSkill
+
 from core.errors import IntegrationNotConnectedError
 from core.skill_interface import SkillContext
 

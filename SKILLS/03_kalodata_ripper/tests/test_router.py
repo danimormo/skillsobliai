@@ -1,11 +1,17 @@
+import importlib
+
 import pytest
 from unittest.mock import AsyncMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from SKILLS.03_kalodata_ripper.router import router
-from SKILLS.03_kalodata_ripper.schemas import KalodataRipperOutput
+_router_mod = importlib.import_module("SKILLS.03_kalodata_ripper.router")
+router = _router_mod.router
+
+_schemas = importlib.import_module("SKILLS.03_kalodata_ripper.schemas")
+KalodataRipperOutput = _schemas.KalodataRipperOutput
+
 from core.skill_interface import SkillResult
 
 app = FastAPI()

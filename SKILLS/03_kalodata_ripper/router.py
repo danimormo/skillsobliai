@@ -5,8 +5,8 @@ from fastapi import APIRouter, Header, HTTPException
 from core.errors import SkillBaseError
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.03_kalodata_ripper.schemas import KalodataRipperInput, KalodataRipperOutput
-from SKILLS.03_kalodata_ripper.service import KalodataRipperSkill
+from .schemas import KalodataRipperInput, KalodataRipperOutput
+from .service import KalodataRipperSkill
 
 logger = logging.getLogger(__name__)
 

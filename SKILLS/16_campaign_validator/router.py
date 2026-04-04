@@ -5,8 +5,8 @@ from fastapi import APIRouter, Header, HTTPException
 from core.errors import IntegrationNotConnectedError, MetaAPIError
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.16_campaign_validator.schemas import CampaignValidatorInput, CampaignValidatorOutput
-from SKILLS.16_campaign_validator.service import CampaignValidatorSkill
+from .schemas import CampaignValidatorInput, CampaignValidatorOutput
+from .service import CampaignValidatorSkill
 
 logger = logging.getLogger(__name__)
 

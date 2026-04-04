@@ -1,11 +1,17 @@
+import importlib
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from SKILLS.16_campaign_validator.router import router
-from SKILLS.16_campaign_validator.schemas import CampaignValidatorOutput, ValidationCheck
+_router_mod = importlib.import_module("SKILLS.16_campaign_validator.router")
+router = _router_mod.router
+
+_schemas = importlib.import_module("SKILLS.16_campaign_validator.schemas")
+CampaignValidatorOutput = _schemas.CampaignValidatorOutput
+ValidationCheck = _schemas.ValidationCheck
+
 from core.skill_interface import SkillResult
 
 app = FastAPI()

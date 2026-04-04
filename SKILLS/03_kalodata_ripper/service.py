@@ -8,8 +8,8 @@ from core.errors import InvalidParamsError
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
 from core.supabase_client import get_supabase
 
-from SKILLS.03_kalodata_ripper import api_client
-from SKILLS.03_kalodata_ripper.schemas import (
+from . import api_client
+from .schemas import (
     KalodataRipperInput,
     KalodataRipperOutput,
     RippedVideo,

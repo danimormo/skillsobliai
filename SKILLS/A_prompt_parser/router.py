@@ -5,8 +5,8 @@ from fastapi import APIRouter, Header, HTTPException
 from core.errors import InvalidParamsError, UpstreamError
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.A_prompt_parser.schemas import PromptParserInput, PromptParserOutput
-from SKILLS.A_prompt_parser.service import PromptParserSkill
+from .schemas import PromptParserInput, PromptParserOutput
+from .service import PromptParserSkill
 
 logger = logging.getLogger(__name__)
 

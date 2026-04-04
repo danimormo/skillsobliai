@@ -12,8 +12,8 @@ from core.errors import InvalidParamsError
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
 from core.supabase_client import get_supabase
 
-from SKILLS.06_content_researcher import api_client, cache
-from SKILLS.06_content_researcher.schemas import (
+from . import api_client, cache
+from .schemas import (
     ContentItem,
     ContentResearchInput,
     ContentResearchOutput,

@@ -7,8 +7,8 @@ from core.errors import IntegrationNotConnectedError, InvalidParamsError
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
 from core.supabase_client import get_supabase
 
-from SKILLS.15_campaign_launcher.api_client import ManusClient, MetaVerifier
-from SKILLS.15_campaign_launcher.schemas import (
+from .api_client import ManusClient, MetaVerifier
+from .schemas import (
     CampaignLauncherInput,
     CampaignLauncherOutput,
 )

@@ -1,12 +1,18 @@
 """Tests for the SupplierResearcherSkill service."""
 
+import importlib
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from core.skill_interface import SkillContext
 from core.errors import InvalidParamsError
-from SKILLS.07_supplier_researcher.schemas import SupplierResearchInput
-from SKILLS.07_supplier_researcher.service import SupplierResearcherSkill
+
+_schemas = importlib.import_module("SKILLS.07_supplier_researcher.schemas")
+SupplierResearchInput = _schemas.SupplierResearchInput
+
+_service = importlib.import_module("SKILLS.07_supplier_researcher.service")
+SupplierResearcherSkill = _service.SupplierResearcherSkill
 
 
 def _make_ctx(user_id: str = "test_user") -> SkillContext:

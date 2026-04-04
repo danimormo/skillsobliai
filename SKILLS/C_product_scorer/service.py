@@ -5,7 +5,7 @@ from core.errors import InvalidParamsError
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
 from core.supabase_client import get_supabase
 
-from SKILLS.C_product_scorer.schemas import (
+from .schemas import (
     ProductScorerInput,
     ProductScorerOutput,
     ScoredProduct,
