@@ -108,6 +108,7 @@ class TikTokAdsResearcherSkill(BaseSkill[TikTokAdsResearchInput, TikTokAdsResear
                         likes=int(item.get("likes", 0)),
                         comments=int(item.get("comments", 0)),
                         shares=int(item.get("shares", 0)),
+                        views=int(item.get("views", 0)),
                         engagement_rate=float(item.get("engagement_rate", 0.0)),
                         estimated_spend=item.get("estimated_spend"),
                         region=item.get("region", region),
