@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS campaigns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    meta_campaign_id TEXT,
+    meta_adset_id TEXT,
+    meta_ad_id TEXT,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    daily_budget_usd FLOAT,
+    roas_target FLOAT DEFAULT 2.5,
+    roas_kill_threshold FLOAT DEFAULT 1.0,
+    roas_scale_threshold FLOAT DEFAULT 2.5,
+    roas_duplicate_threshold FLOAT DEFAULT 4.0,
+    spend_kill_limit_usd FLOAT DEFAULT 30.0,
+    scale_consecutive_days INTEGER DEFAULT 2,
+    duplicate_consecutive_days INTEGER DEFAULT 5,
+    params JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);

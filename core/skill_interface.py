@@ -11,7 +11,7 @@ TOutput = TypeVar("TOutput", bound=BaseModel)
 class SkillContext(BaseModel):
     user_id: str
     request_id: str = ""
-    triggered_by: str = "api"  # "api" | "scheduler" | "skill"
+    triggered_by: str = "api"
 
     def model_post_init(self, __context: object) -> None:
         if not self.request_id:
@@ -22,6 +22,7 @@ class SkillResult(BaseModel, Generic[TOutput]):
     success: bool
     data: TOutput | None = None
     error: str | None = None
+    error_code: str | None = None
     cached: bool = False
     execution_ms: int = 0
     executed_at: str = ""
@@ -35,13 +36,7 @@ class BaseSkill(ABC, Generic[TInput, TOutput]):
     name: str
     version: str = "1.0.0"
     description: str
-    consumes_credits: bool = False
-    credit_cost: int = 0
 
     @abstractmethod
     async def run(self, input: TInput, ctx: SkillContext) -> SkillResult[TOutput]:
-        pass
-
-    @abstractmethod
-    def validate(self, input: TInput) -> bool:
         pass
