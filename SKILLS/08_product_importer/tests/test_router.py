@@ -4,8 +4,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from fastapi import FastAPI
 
-from SKILLS.product_importer.router import router
-from SKILLS.product_importer.schemas import ProductImportOutput
+from SKILLS.08_product_importer.router import router
+from SKILLS.08_product_importer.schemas import ProductImportOutput
 from core.skill_interface import SkillResult
 
 app = FastAPI()
@@ -46,7 +46,7 @@ def _success_result() -> SkillResult[ProductImportOutput]:
 async def test_run_endpoint_success():
     """POST /product-importer/run returns 200 with valid payload."""
     with patch(
-        "SKILLS.product_importer.router._skill",
+        "SKILLS.08_product_importer.router._skill",
     ) as mock_skill:
         mock_skill.run = AsyncMock(return_value=_success_result())
 

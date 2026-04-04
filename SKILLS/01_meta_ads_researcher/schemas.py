@@ -30,3 +30,4 @@ class MetaAdsResearchOutput(BaseModel):
     search_terms: list[str]
     countries: list[str]
     next_cursor: str | None = None
+    note: str = "Creative images not available via Meta Ads Library API"

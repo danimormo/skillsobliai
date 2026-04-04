@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from SKILLS.product_importer.schemas import ProductImportInput
-from SKILLS.product_importer.service import ProductImporterSkill
+from SKILLS.08_product_importer.schemas import ProductImportInput
+from SKILLS.08_product_importer.service import ProductImporterSkill
 from core.errors import IntegrationNotConnectedError
 from core.skill_interface import SkillContext
 
@@ -86,11 +86,11 @@ async def test_happy_path(skill, ctx, sample_input):
 
     with (
         patch(
-            "SKILLS.product_importer.service.get_supabase",
+            "SKILLS.08_product_importer.service.get_supabase",
             return_value=mock_sb,
         ),
         patch(
-            "SKILLS.product_importer.service.ShopifyClient",
+            "SKILLS.08_product_importer.service.ShopifyClient",
         ) as MockClient,
     ):
         client_instance = AsyncMock()
@@ -125,7 +125,7 @@ async def test_missing_integration(skill, ctx, sample_input):
 
     with (
         patch(
-            "SKILLS.product_importer.service.get_supabase",
+            "SKILLS.08_product_importer.service.get_supabase",
             return_value=mock_sb,
         ),
         pytest.raises(IntegrationNotConnectedError) as exc_info,
@@ -148,11 +148,11 @@ async def test_partial_image_failure(skill, ctx, sample_input):
 
     with (
         patch(
-            "SKILLS.product_importer.service.get_supabase",
+            "SKILLS.08_product_importer.service.get_supabase",
             return_value=mock_sb,
         ),
         patch(
-            "SKILLS.product_importer.service.ShopifyClient",
+            "SKILLS.08_product_importer.service.ShopifyClient",
         ) as MockClient,
     ):
         client_instance = AsyncMock()

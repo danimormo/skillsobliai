@@ -19,6 +19,7 @@ class TikTokAd(BaseModel):
     likes: int
     comments: int
     shares: int
+    views: int = 0
     engagement_rate: float
     estimated_spend: str | None = None
     region: str
