@@ -5,16 +5,14 @@ class ImageCreatorInput(BaseModel):
     product_title: str
     variant: str = "product_shot"
     custom_prompt_additions: str | None = None
-    source_image_url: str | None = None
+    aspect_ratio: str = "1:1"
     num_images: int = 1
-    image_size: str = "square_hd"
 
 
 class GeneratedImage(BaseModel):
     storage_path: str
     signed_url: str
     prompt_used: str
-    fal_seed: int | None = None
     width: int
     height: int
     variant: str

@@ -15,6 +15,13 @@ from core.errors import (
     InsufficientCreditsError,
     IntegrationNotConnectedError,
     InvalidApiKeyError,
+    VertexAIError,
+    VertexAITimeoutError,
+    GoogleVisionError,
+    ManusError,
+    ManusTimeoutError,
+    ShopifyError,
+    MetaAPIError,
 )
 
 logger = logging.getLogger("skillsobliai")
@@ -28,6 +35,13 @@ ERROR_STATUS_MAP: dict[type, int] = {
     UpstreamError: 502,
     InsufficientCreditsError: 402,
     IntegrationNotConnectedError: 403,
+    VertexAIError: 502,
+    VertexAITimeoutError: 504,
+    GoogleVisionError: 502,
+    ManusError: 502,
+    ManusTimeoutError: 504,
+    ShopifyError: 502,
+    MetaAPIError: 502,
 }
 
 

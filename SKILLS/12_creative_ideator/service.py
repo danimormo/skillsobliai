@@ -22,7 +22,7 @@ class CreativeIdeatorSkill(
 ):
     name = SKILL_NAME
     version = "1.0.0"
-    description = "Generate creative briefs and ad angles via OpenRouter/DeepSeek"
+    description = "Generate creative briefs and ad angles via Anthropic Claude"
     consumes_credits = True
     credit_cost = 1
 
@@ -66,7 +66,7 @@ class CreativeIdeatorSkill(
                 execution_ms=elapsed_ms,
             )
 
-        # -- Generate creative angles via OpenRouter ----------------------
+        # -- Generate creative angles via Claude --------------------------
         raw = await api_client.generate_creative_angles(
             product_title=input.product_title,
             product_description=input.product_description,

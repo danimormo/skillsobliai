@@ -21,7 +21,7 @@ SKILL_NAME = "pdp-builder"
 class PDPBuilderSkill(BaseSkill[PDPBuilderInput, PDPBuilderOutput]):
     name = SKILL_NAME
     version = "1.0.0"
-    description = "Generate PDP copy via OpenRouter/DeepSeek"
+    description = "Generate PDP copy via Anthropic Claude"
     consumes_credits = True
     credit_cost = 1
 
@@ -59,7 +59,7 @@ class PDPBuilderSkill(BaseSkill[PDPBuilderInput, PDPBuilderOutput]):
                 execution_ms=elapsed_ms,
             )
 
-        # -- Generate PDP via OpenRouter ----------------------------------
+        # -- Generate PDP via Claude --------------------------------------
         raw = await api_client.generate_pdp(
             product_title=input.product_title,
             product_description=input.product_description,

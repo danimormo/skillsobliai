@@ -21,7 +21,7 @@ SKILL_NAME = "landing-builder"
 class LandingBuilderSkill(BaseSkill[LandingBuilderInput, LandingBuilderOutput]):
     name = SKILL_NAME
     version = "1.0.0"
-    description = "Generate landing page copy via OpenRouter/DeepSeek"
+    description = "Generate landing page copy via Anthropic Claude"
     consumes_credits = True
     credit_cost = 1
 
@@ -65,7 +65,7 @@ class LandingBuilderSkill(BaseSkill[LandingBuilderInput, LandingBuilderOutput]):
                 execution_ms=elapsed_ms,
             )
 
-        # -- Generate landing via OpenRouter ------------------------------
+        # -- Generate landing via Claude ----------------------------------
         raw_sections = await api_client.generate_landing(
             product_title=input.product_title,
             product_description=input.product_description,

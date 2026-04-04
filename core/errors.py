@@ -41,11 +41,15 @@ class InsufficientCreditsError(SkillBaseError):
     pass
 
 
-class FALError(SkillBaseError):
+class VertexAIError(SkillBaseError):
     pass
 
 
-class FALTimeoutError(SkillBaseError):
+class VertexAITimeoutError(SkillBaseError):
+    pass
+
+
+class GoogleVisionError(SkillBaseError):
     pass
 
 
@@ -62,8 +66,4 @@ class ShopifyError(SkillBaseError):
 
 
 class MetaAPIError(SkillBaseError):
-    pass
-
-
-class StripeWebhookError(SkillBaseError):
     pass

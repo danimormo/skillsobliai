@@ -18,3 +18,6 @@ CREATE TABLE IF NOT EXISTS campaigns (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX idx_camp_user ON campaigns(user_id);
+CREATE INDEX idx_camp_meta ON campaigns(meta_campaign_id);
+CREATE INDEX idx_camp_status ON campaigns(status);
