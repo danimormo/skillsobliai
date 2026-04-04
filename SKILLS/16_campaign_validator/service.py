@@ -6,8 +6,8 @@ from core.errors import IntegrationNotConnectedError
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
 from core.supabase_client import get_supabase
 
-from SKILLS.campaign_validator.api_client import MetaValidator
-from SKILLS.campaign_validator.schemas import (
+from SKILLS.16_campaign_validator.api_client import MetaValidator
+from SKILLS.16_campaign_validator.schemas import (
     CampaignValidatorInput,
     CampaignValidatorOutput,
     ValidationCheck,

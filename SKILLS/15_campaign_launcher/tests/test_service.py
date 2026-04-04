@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from SKILLS.campaign_launcher.schemas import CampaignLauncherInput
-from SKILLS.campaign_launcher.service import CampaignLauncherSkill
+from SKILLS.15_campaign_launcher.schemas import CampaignLauncherInput
+from SKILLS.15_campaign_launcher.service import CampaignLauncherSkill
 from core.errors import IntegrationNotConnectedError, InvalidParamsError
 from core.skill_interface import SkillContext
 
@@ -53,7 +53,7 @@ async def test_run_happy_path(skill, ctx, sample_input):
 
     with (
         patch(
-            "SKILLS.campaign_launcher.service.get_supabase",
+            "SKILLS.15_campaign_launcher.service.get_supabase",
             return_value=mock_sb,
         ),
         patch.object(

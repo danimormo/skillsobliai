@@ -6,6 +6,7 @@ class GoogleResearchInput(BaseModel):
     region: str = "US"
     reddit_subreddits: list[str] = Field(default=[])
     trends_days: int = 90
+    find_shopify_competitors: bool = False
 
 
 class TrendDataPoint(BaseModel):
@@ -32,3 +33,4 @@ class GoogleResearchOutput(BaseModel):
     estimated_monthly_searches: int | None = None
     estimated_cpc_usd: float | None = None
     demand_score: int  # 0-100
+    shopify_competitors: list[str] = []

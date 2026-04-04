@@ -4,8 +4,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from SKILLS.campaign_validator.router import router
-from SKILLS.campaign_validator.schemas import CampaignValidatorOutput, ValidationCheck
+from SKILLS.16_campaign_validator.router import router
+from SKILLS.16_campaign_validator.schemas import CampaignValidatorOutput, ValidationCheck
 from core.skill_interface import SkillResult
 
 app = FastAPI()
@@ -48,7 +48,7 @@ def _make_skill_result() -> SkillResult[CampaignValidatorOutput]:
 def test_run_success():
     """POST /run returns 200 with valid input."""
     with patch(
-        "SKILLS.campaign_validator.router._skill.run",
+        "SKILLS.16_campaign_validator.router._skill.run",
         new_callable=AsyncMock,
         return_value=_make_skill_result(),
     ):

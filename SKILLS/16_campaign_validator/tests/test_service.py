@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from SKILLS.campaign_validator.schemas import CampaignValidatorInput
-from SKILLS.campaign_validator.service import CampaignValidatorSkill
+from SKILLS.16_campaign_validator.schemas import CampaignValidatorInput
+from SKILLS.16_campaign_validator.service import CampaignValidatorSkill
 from core.errors import IntegrationNotConnectedError
 from core.skill_interface import SkillContext
 
@@ -50,7 +50,7 @@ async def test_run_all_checks_pass(skill, ctx, sample_input):
     """All checks pass -> can_launch is True."""
     with (
         patch(
-            "SKILLS.campaign_validator.service.get_supabase",
+            "SKILLS.16_campaign_validator.service.get_supabase",
             return_value=_mock_supabase(),
         ),
         patch.object(
@@ -88,7 +88,7 @@ async def test_run_budget_too_low(skill, ctx, sample_input):
 
     with (
         patch(
-            "SKILLS.campaign_validator.service.get_supabase",
+            "SKILLS.16_campaign_validator.service.get_supabase",
             return_value=_mock_supabase(),
         ),
         patch.object(
@@ -123,7 +123,7 @@ async def test_run_integration_not_connected(skill, ctx, sample_input):
     """Missing Meta token raises IntegrationNotConnectedError."""
     with (
         patch(
-            "SKILLS.campaign_validator.service.get_supabase",
+            "SKILLS.16_campaign_validator.service.get_supabase",
             return_value=_mock_supabase(None),
         ),
         pytest.raises(IntegrationNotConnectedError),

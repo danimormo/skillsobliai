@@ -31,3 +31,5 @@ class SupplierResearchOutput(BaseModel):
     best_price: SupplierProduct | None = None
     best_margin: SupplierProduct | None = None
     fastest_shipping: SupplierProduct | None = None
+    supplier_links: dict = {}
+    price_estimate: dict | None = None

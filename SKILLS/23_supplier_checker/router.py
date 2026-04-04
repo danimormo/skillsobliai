@@ -2,17 +2,17 @@ import logging
 
 from fastapi import APIRouter, Header, HTTPException
 
-from core.errors import IntegrationNotConnectedError, MetaAPIError
+from core.errors import InvalidApiKeyError, InvalidParamsError, UpstreamError
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.16_campaign_validator.schemas import CampaignValidatorInput, CampaignValidatorOutput
-from SKILLS.16_campaign_validator.service import CampaignValidatorSkill
+from SKILLS.supplier_checker.schemas import SupplierCheckerInput, SupplierCheckerOutput
+from SKILLS.supplier_checker.service import SupplierCheckerSkill
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["campaign-validator"])
+router = APIRouter(tags=["supplier-checker"])
 
-_skill = CampaignValidatorSkill()
+_skill = SupplierCheckerSkill()
 
 
 def _extract_user_id(authorization: str) -> str:
@@ -25,20 +25,22 @@ def _extract_user_id(authorization: str) -> str:
     return token
 
 
-@router.post("/run", response_model=SkillResult[CampaignValidatorOutput])
-async def run_campaign_validator(
-    body: CampaignValidatorInput,
+@router.post("/run", response_model=SkillResult[SupplierCheckerOutput])
+async def run_supplier_checker(
+    body: SupplierCheckerInput,
     authorization: str = Header(...),
-) -> SkillResult[CampaignValidatorOutput]:
-    """Validate campaign parameters before launch."""
+) -> SkillResult[SupplierCheckerOutput]:
+    """Run a supplier viability check with margin calculation."""
     user_id = _extract_user_id(authorization)
     ctx = SkillContext(user_id=user_id)
 
     try:
         result = await _skill.run(body, ctx)
-    except IntegrationNotConnectedError as exc:
-        raise HTTPException(status_code=400, detail=exc.message) from exc
-    except MetaAPIError as exc:
+    except InvalidParamsError as exc:
+        raise HTTPException(status_code=422, detail=exc.message) from exc
+    except InvalidApiKeyError as exc:
+        raise HTTPException(status_code=502, detail=exc.message) from exc
+    except UpstreamError as exc:
         raise HTTPException(status_code=502, detail=exc.message) from exc
 
     return result

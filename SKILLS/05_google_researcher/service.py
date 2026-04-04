@@ -176,6 +176,23 @@ class GoogleResearcherSkill(BaseSkill[GoogleResearchInput, GoogleResearchOutput]
 
         demand_score = _calculate_demand_score(trend_values, reddit_posts)
 
+        # ── Shopify competitor search (optional) ───────────────────
+        shopify_competitors: list[str] = []
+        if input.find_shopify_competitors:
+            try:
+                query = f'site:myshopify.com "{primary_keyword}"'
+                results = await api_client.search_google(
+                    client=None,
+                    query=query,
+                    limit=10,
+                )
+                for r in results:
+                    url = r.get("url", r.get("link", ""))
+                    if url and "myshopify.com" in url:
+                        shopify_competitors.append(url)
+            except Exception:
+                logger.exception("Failed to fetch Shopify competitors for %s", primary_keyword)
+
         output = GoogleResearchOutput(
             keyword=primary_keyword,
             trend_direction=trend_direction,
@@ -186,6 +203,7 @@ class GoogleResearcherSkill(BaseSkill[GoogleResearchInput, GoogleResearchOutput]
             estimated_monthly_searches=trends_raw.get("estimated_monthly_searches"),
             estimated_cpc_usd=trends_raw.get("estimated_cpc_usd"),
             demand_score=demand_score,
+            shopify_competitors=shopify_competitors,
         )
 
         # ── Process remaining keywords (save only, not returned) ────

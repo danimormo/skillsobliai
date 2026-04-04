@@ -19,6 +19,43 @@ SKILL_NAME = "supplier-researcher"
 
 VALID_SOURCES = {"aliexpress", "cj", "spocket"}
 
+
+def build_supplier_links(title: str) -> dict:
+    """Build search URLs for common supplier marketplaces."""
+    from urllib.parse import quote
+    encoded = quote(title)
+    return {
+        "aliexpress_text": f"https://www.aliexpress.com/wholesale?SearchText={encoded}",
+        "alibaba": f"https://www.alibaba.com/trade/search?SearchText={encoded}",
+        "shein": f"https://www.shein.com/search?q={encoded}",
+        "temu": f"https://www.temu.com/search_result.html?search_key={encoded}",
+    }
+
+
+async def _estimate_price_with_haiku(product_name: str) -> dict | None:
+    """Use Claude Haiku to estimate a price range when no API results are found."""
+    try:
+        import anthropic
+        client = anthropic.Anthropic()
+        message = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=256,
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        f"Estimate the typical wholesale/supplier cost (USD) for: {product_name}\n"
+                        "Reply ONLY with JSON: {\"low_usd\": <number>, \"high_usd\": <number>, \"confidence\": \"low\"|\"medium\"|\"high\"}"
+                    ),
+                }
+            ],
+        )
+        import json
+        return json.loads(message.content[0].text)
+    except Exception:
+        logger.exception("Failed to get price estimate from Haiku for %s", product_name)
+        return None
+
 SOURCE_SEARCH_FN = {
     "aliexpress": api_client.search_aliexpress,
     "cj": api_client.search_cj,
@@ -131,12 +168,22 @@ class SupplierResearcherSkill(BaseSkill[SupplierResearchInput, SupplierResearchO
             if with_margin:
                 best_margin = max(with_margin, key=lambda p: p.margin_at_3x)  # type: ignore[arg-type]
 
+        # -- Build supplier links ------------------------------------------------
+        supplier_links = build_supplier_links(input.product_name)
+
+        # -- Estimate price via Haiku if no API results --------------------------
+        price_estimate: dict | None = None
+        if not products:
+            price_estimate = await _estimate_price_with_haiku(input.product_name)
+
         output = SupplierResearchOutput(
             total_found=len(products),
             products=products,
             best_price=best_price,
             best_margin=best_margin,
             fastest_shipping=fastest_shipping,
+            supplier_links=supplier_links,
+            price_estimate=price_estimate,
         )
 
         # -- Persist to Supabase -----------------------------------------------

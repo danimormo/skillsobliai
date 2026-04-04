@@ -124,6 +124,29 @@ async def fetch_google_trends(
         return await _do(c)
 
 
+async def search_google(
+    client: httpx.AsyncClient | None,
+    query: str,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Search Google via ScrapeCreators /v1/google/search endpoint."""
+    params: dict[str, Any] = {
+        "query": query,
+        "limit": limit,
+    }
+    url = f"{_base_url()}/v1/google/search"
+
+    async def _do(c: httpx.AsyncClient) -> list[dict[str, Any]]:
+        data = await _request_with_retry(c, "GET", url, params=params, headers=_headers())
+        return data.get("results", [])
+
+    if client:
+        return await _do(client)
+
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+        return await _do(c)
+
+
 async def search_reddit(
     keyword: str,
     subreddits: list[str] | None = None,
