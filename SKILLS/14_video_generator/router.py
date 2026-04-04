@@ -3,15 +3,15 @@ import logging
 from fastapi import APIRouter, Header, HTTPException
 
 from core.errors import (
-    FALError,
-    FALTimeoutError,
     InsufficientCreditsError,
     InvalidParamsError,
+    VertexAIError,
+    VertexAITimeoutError,
 )
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.video_generator.schemas import VideoGeneratorInput, VideoGeneratorOutput
-from SKILLS.video_generator.service import VideoGeneratorSkill
+from .schemas import VideoGeneratorInput, VideoGeneratorOutput
+from .service import VideoGeneratorSkill
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ async def run_video_generator(
     body: VideoGeneratorInput,
     authorization: str = Header(...),
 ) -> SkillResult[VideoGeneratorOutput]:
-    """Generate a product video via FAL.ai Kling 2.6."""
+    """Generate a product video via Google Vertex AI Veo 2."""
     user_id = _extract_user_id(authorization)
     ctx = SkillContext(user_id=user_id)
 
@@ -45,9 +45,9 @@ async def run_video_generator(
         raise HTTPException(status_code=422, detail=exc.message) from exc
     except InsufficientCreditsError as exc:
         raise HTTPException(status_code=402, detail=exc.message) from exc
-    except FALTimeoutError as exc:
+    except VertexAITimeoutError as exc:
         raise HTTPException(status_code=504, detail=exc.message) from exc
-    except FALError as exc:
+    except VertexAIError as exc:
         raise HTTPException(status_code=502, detail=exc.message) from exc
 
     return result

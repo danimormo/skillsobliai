@@ -1,6 +1,7 @@
-import asyncio
 import logging
 import time
+
+import httpx
 
 from core.errors import InvalidParamsError
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
@@ -17,56 +18,29 @@ logger = logging.getLogger(__name__)
 
 SKILL_NAME = "supplier-researcher"
 
-VALID_SOURCES = {"aliexpress", "cj", "spocket"}
 
-
-def build_supplier_links(title: str) -> dict:
-    """Build search URLs for common supplier marketplaces."""
-    from urllib.parse import quote
-    encoded = quote(title)
+def _normalize_aliexpress(raw: dict) -> dict:
+    """Normalize a single AliExpress product dict to common format."""
     return {
-        "aliexpress_text": f"https://www.aliexpress.com/wholesale?SearchText={encoded}",
-        "alibaba": f"https://www.alibaba.com/trade/search?SearchText={encoded}",
-        "shein": f"https://www.shein.com/search?q={encoded}",
-        "temu": f"https://www.temu.com/search_result.html?search_key={encoded}",
+        "source": "aliexpress",
+        "product_id": str(raw.get("product_id", raw.get("id", ""))),
+        "title": raw.get("title", raw.get("product_title", "")),
+        "cost_usd": float(raw.get("target_sale_price", raw.get("price", 0))),
+        "shipping_cost_usd": float(raw.get("shipping_cost", 0)),
+        "shipping_days_min": int(raw.get("shipping_days_min", raw.get("delivery_days_min", 15))),
+        "shipping_days_max": int(raw.get("shipping_days_max", raw.get("delivery_days_max", 45))),
+        "moq": int(raw.get("min_order_quantity", raw.get("moq", 1))),
+        "supplier_rating": float(raw["seller_rating"]) if raw.get("seller_rating") else None,
+        "image_urls": raw.get("image_urls", raw.get("images", [])),
+        "product_url": raw.get("product_url", raw.get("url", "")),
+        "in_stock": raw.get("in_stock", True),
     }
-
-
-async def _estimate_price_with_haiku(product_name: str) -> dict | None:
-    """Use Claude Haiku to estimate a price range when no API results are found."""
-    try:
-        import anthropic
-        client = anthropic.Anthropic()
-        message = client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=256,
-            messages=[
-                {
-                    "role": "user",
-                    "content": (
-                        f"Estimate the typical wholesale/supplier cost (USD) for: {product_name}\n"
-                        "Reply ONLY with JSON: {\"low_usd\": <number>, \"high_usd\": <number>, \"confidence\": \"low\"|\"medium\"|\"high\"}"
-                    ),
-                }
-            ],
-        )
-        import json
-        return json.loads(message.content[0].text)
-    except Exception:
-        logger.exception("Failed to get price estimate from Haiku for %s", product_name)
-        return None
-
-SOURCE_SEARCH_FN = {
-    "aliexpress": api_client.search_aliexpress,
-    "cj": api_client.search_cj,
-    "spocket": api_client.search_spocket,
-}
 
 
 class SupplierResearcherSkill(BaseSkill[SupplierResearchInput, SupplierResearchOutput]):
     name = SKILL_NAME
-    version = "1.0.0"
-    description = "Research suppliers across AliExpress, CJDropshipping, and Spocket for dropshipping products"
+    version = "2.0.0"
+    description = "Research suppliers via AliExpress and Google Vision for dropshipping products"
     consumes_credits = True
     credit_cost = 1
 
@@ -74,13 +48,6 @@ class SupplierResearcherSkill(BaseSkill[SupplierResearchInput, SupplierResearchO
         if not input.product_name or not input.product_name.strip():
             raise InvalidParamsError(
                 message="product_name must not be empty",
-                skill=SKILL_NAME,
-                code="INVALID_PARAMS",
-            )
-        invalid_sources = set(input.sources) - VALID_SOURCES
-        if invalid_sources:
-            raise InvalidParamsError(
-                message=f"Invalid sources: {', '.join(sorted(invalid_sources))}. Valid: {', '.join(sorted(VALID_SOURCES))}",
                 skill=SKILL_NAME,
                 code="INVALID_PARAMS",
             )
@@ -105,55 +72,45 @@ class SupplierResearcherSkill(BaseSkill[SupplierResearchInput, SupplierResearchO
                 execution_ms=elapsed_ms,
             )
 
-        # -- Fetch from all requested sources in parallel ----------------------
-        tasks = []
-        source_order: list[str] = []
-        for source in input.sources:
-            if source in SOURCE_SEARCH_FN:
-                tasks.append(
-                    SOURCE_SEARCH_FN[source](input.product_name, input.limit_per_source)
-                )
-                source_order.append(source)
-
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # -- Normalize into SupplierProduct list -------------------------------
+        # -- Search AliExpress via ScrapeCreators ------------------------------
         products: list[SupplierProduct] = []
-        for source_name, result in zip(source_order, results):
-            if isinstance(result, Exception):
-                logger.warning("Skipping failed source %s: %s", source_name, result)
-                continue
-            if not isinstance(result, list):
-                continue
-            for raw in result:
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                raw_products = await api_client.search_aliexpress(
+                    client, input.product_name, limit=input.limit_per_source
+                )
+            for raw in raw_products:
                 try:
-                    # Calculate margin_at_3x if target_price provided
+                    normalized = _normalize_aliexpress(raw)
                     margin = None
                     if input.target_price_usd and input.target_price_usd > 0:
-                        total_cost = raw.get("cost_usd", 0) + raw.get("shipping_cost_usd", 0)
+                        total_cost = normalized["cost_usd"] + normalized["shipping_cost_usd"]
                         margin = round(
                             (input.target_price_usd - total_cost) / input.target_price_usd, 4
                         )
-
                     products.append(
                         SupplierProduct(
-                            source=raw.get("source", source_name),
-                            product_id=str(raw.get("product_id", "")),
-                            title=raw.get("title", ""),
-                            cost_usd=float(raw.get("cost_usd", 0)),
-                            shipping_cost_usd=float(raw.get("shipping_cost_usd", 0)),
-                            shipping_days_min=int(raw.get("shipping_days_min", 0)),
-                            shipping_days_max=int(raw.get("shipping_days_max", 0)),
-                            moq=int(raw.get("moq", 1)),
-                            supplier_rating=raw.get("supplier_rating"),
-                            image_urls=raw.get("image_urls", []),
-                            product_url=raw.get("product_url", ""),
+                            **normalized,
                             margin_at_3x=margin,
-                            in_stock=raw.get("in_stock", True),
                         )
                     )
                 except Exception:
-                    logger.warning("Failed to parse product from %s: %s", source_name, raw)
+                    logger.warning("Failed to parse AliExpress product: %s", raw)
+        except Exception as exc:
+            logger.warning("AliExpress search failed: %s", exc)
+
+        # -- Google Vision supplier links (if image URL provided) --------------
+        vision_supplier_links: dict = {}
+        if input.product_image_url:
+            try:
+                vision_supplier_links = api_client.find_supplier_links_via_vision(
+                    input.product_image_url
+                )
+            except Exception as exc:
+                logger.warning("Google Vision lookup failed: %s", exc)
+
+        # -- Static supplier links (always) ------------------------------------
+        supplier_links_static = api_client.build_supplier_links_static(input.product_name)
 
         # -- Compute summary picks ---------------------------------------------
         best_price: SupplierProduct | None = None
@@ -168,13 +125,15 @@ class SupplierResearcherSkill(BaseSkill[SupplierResearchInput, SupplierResearchO
             if with_margin:
                 best_margin = max(with_margin, key=lambda p: p.margin_at_3x)  # type: ignore[arg-type]
 
-        # -- Build supplier links ------------------------------------------------
-        supplier_links = build_supplier_links(input.product_name)
-
-        # -- Estimate price via Haiku if no API results --------------------------
+        # -- Estimate price via Claude Haiku if no API results -----------------
         price_estimate: dict | None = None
         if not products:
-            price_estimate = await _estimate_price_with_haiku(input.product_name)
+            try:
+                price_estimate = await api_client.estimate_supplier_price_with_claude(
+                    input.product_name
+                )
+            except Exception:
+                logger.exception("Failed to get price estimate from Claude for %s", input.product_name)
 
         output = SupplierResearchOutput(
             total_found=len(products),
@@ -182,7 +141,8 @@ class SupplierResearcherSkill(BaseSkill[SupplierResearchInput, SupplierResearchO
             best_price=best_price,
             best_margin=best_margin,
             fastest_shipping=fastest_shipping,
-            supplier_links=supplier_links,
+            supplier_links_static=supplier_links_static,
+            vision_supplier_links=vision_supplier_links,
             price_estimate=price_estimate,
         )
 
