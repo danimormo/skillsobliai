@@ -1,4 +1,4 @@
-# kalodata-ripper: No cache layer needed.
+# video-ripper: No cache layer needed.
 #
 # This skill performs write operations (downloading videos and uploading
 # them to Supabase Storage), so caching results would be inappropriate.

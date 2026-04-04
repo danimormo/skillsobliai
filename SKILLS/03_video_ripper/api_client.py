@@ -1,29 +1,31 @@
-import asyncio
+"""ScrapeCreators HTTP client for the Video Ripper skill."""
+
+from __future__ import annotations
+
 import logging
 
 import httpx
 
 from core.config import settings
-from core.errors import InvalidApiKeyError, InvalidParamsError, UpstreamError
+from core.errors import UpstreamError
+from core.http_client import fetch_with_retry
 
 logger = logging.getLogger(__name__)
 
-SKILL_NAME = "kalodata-ripper"
-MAX_RETRIES = 3
-BACKOFF_FACTORS = [1, 2, 4]
+SKILL_NAME = "video-ripper"
 
 
-async def fetch_product_videos(
+async def fetch_shop_videos(
+    client: httpx.AsyncClient,
     product_id: str,
     limit: int = 20,
 ) -> list[dict]:
-    """Fetch TikTok Shop videos for a product from ScrapeCreators.
+    """Fetch TikTok Shop videos sorted by engagement rate.
 
-    Calls GET /v1/tiktok/shop/videos with sort_by=engagement_rate.
-    Retries up to 3 times on 429 / 5xx with exponential backoff.
+    Calls GET /v1/tiktok/shop/videos?product_id={id}&sort_by=engagement_rate.
+    Works for ALL regions.
 
-    Returns a list of video dicts containing download_url, views,
-    engagement_rate, duration, thumbnail_url, and ad_id.
+    Returns a list of video dicts.
     """
     url = f"{settings.SCRAPECREATORS_BASE_URL}/v1/tiktok/shop/videos"
     headers = {"x-api-key": settings.SCRAPECREATORS_API_KEY}
@@ -33,62 +35,53 @@ async def fetch_product_videos(
         "limit": limit,
     }
 
-    last_exc: Exception | None = None
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        for attempt in range(MAX_RETRIES):
-            try:
-                response = await client.get(url, headers=headers, params=params)
-
-                if response.status_code == 401:
-                    raise InvalidApiKeyError(
-                        message="Invalid ScrapeCreators API key",
-                        skill=SKILL_NAME,
-                        code="INVALID_API_KEY",
-                    )
-
-                if response.status_code == 422:
-                    raise InvalidParamsError(
-                        message=f"Invalid parameters: {response.text}",
-                        skill=SKILL_NAME,
-                        code="INVALID_PARAMS",
-                    )
-
-                if response.status_code == 429 or response.status_code >= 500:
-                    wait = BACKOFF_FACTORS[attempt] if attempt < len(BACKOFF_FACTORS) else BACKOFF_FACTORS[-1]
-                    logger.warning(
-                        "ScrapeCreators %s (attempt %d/%d), retrying in %ds",
-                        response.status_code,
-                        attempt + 1,
-                        MAX_RETRIES,
-                        wait,
-                    )
-                    last_exc = UpstreamError(
-                        message=f"Upstream returned {response.status_code}",
-                        skill=SKILL_NAME,
-                        code="UPSTREAM_ERROR",
-                    )
-                    await asyncio.sleep(wait)
-                    continue
-
-                response.raise_for_status()
-                body = response.json()
-                return body.get("data", body.get("videos", []))
-
-            except (httpx.ConnectError, httpx.ReadTimeout) as exc:
-                wait = BACKOFF_FACTORS[attempt] if attempt < len(BACKOFF_FACTORS) else BACKOFF_FACTORS[-1]
-                logger.warning(
-                    "ScrapeCreators connection error (attempt %d/%d): %s",
-                    attempt + 1,
-                    MAX_RETRIES,
-                    exc,
-                )
-                last_exc = exc
-                await asyncio.sleep(wait)
-                continue
-
-    raise UpstreamError(
-        message=f"ScrapeCreators unavailable after {MAX_RETRIES} retries: {last_exc}",
-        skill=SKILL_NAME,
-        code="UPSTREAM_ERROR",
+    response = await fetch_with_retry(
+        client, "GET", url, headers=headers, params=params,
     )
+    response.raise_for_status()
+    body = response.json()
+    videos = body.get("data", body.get("videos", []))
+    for v in videos:
+        v["_source"] = "shop_videos"
+    return videos
+
+
+async def fetch_product_details_videos(
+    client: httpx.AsyncClient,
+    product_url: str,
+    region: str = "US",
+) -> list[dict]:
+    """Fetch related videos via the product details endpoint.
+
+    Calls GET /v1/tiktok/product?url={url}&get_related_videos=true&region={region}.
+    Works ONLY for US products; returns empty list on 500 errors (EU products)
+    instead of raising.
+
+    Returns a list of video dicts.
+    """
+    url = f"{settings.SCRAPECREATORS_BASE_URL}/v1/tiktok/product"
+    headers = {"x-api-key": settings.SCRAPECREATORS_API_KEY}
+    params = {
+        "url": product_url,
+        "get_related_videos": "true",
+        "region": region,
+    }
+
+    try:
+        response = await fetch_with_retry(
+            client, "GET", url, headers=headers, params=params,
+        )
+        response.raise_for_status()
+    except (httpx.HTTPStatusError, UpstreamError) as exc:
+        logger.warning(
+            "Product details endpoint failed (region=%s): %s — returning empty list",
+            region,
+            exc,
+        )
+        return []
+
+    body = response.json()
+    videos = body.get("related_videos", body.get("videos", []))
+    for v in videos:
+        v["_source"] = "product_details"
+    return videos

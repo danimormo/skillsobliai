@@ -18,4 +18,4 @@ class VideoGeneratorOutput(BaseModel):
     file_size_mb: float
     credits_used: int
     credits_remaining: int
-    fal_request_id: str
+    vertex_operation_name: str

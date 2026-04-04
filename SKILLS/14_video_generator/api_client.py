@@ -1,99 +1,62 @@
 import asyncio
-import logging
+import time
 
-import httpx
+import vertexai
+from vertexai.preview.vision_models import VideoGenerationModel
 
 from core.config import settings
-from core.errors import FALError, FALTimeoutError
-
-logger = logging.getLogger(__name__)
-
-SUBMIT_URL = f"{settings.FAL_BASE_URL}/fal-ai/kling-video/v2/master/image-to-video"
-POLL_INTERVAL = 5  # seconds
-POLL_TIMEOUT = 120  # seconds
+from core.errors import VertexAIError, VertexAITimeoutError
 
 
-def _headers() -> dict[str, str]:
-    return {
-        "Authorization": f"Key {settings.FAL_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-
-async def submit_video(
+def submit_video_generation(
     prompt: str,
-    image_url: str,
-    duration: str = "5",
+    image_bytes: bytes | None = None,
     aspect_ratio: str = "9:16",
-) -> dict:
-    """Submit a video generation request to FAL.ai Kling 2.6."""
-    payload = {
-        "prompt": prompt,
-        "image_url": image_url,
-        "duration": duration,
-        "aspect_ratio": aspect_ratio,
-    }
+):
+    """Submit a Veo 2 video generation job. Returns a long-running operation."""
+    try:
+        vertexai.init(
+            project=settings.GOOGLE_CLOUD_PROJECT,
+            location=settings.GOOGLE_CLOUD_LOCATION,
+        )
+        model = VideoGenerationModel.from_pretrained(settings.VERTEX_VIDEO_MODEL)
+        if image_bytes:
+            operation = model.generate_video(
+                prompt=prompt,
+                image=image_bytes,
+                duration_seconds=5,
+                aspect_ratio=aspect_ratio,
+            )
+        else:
+            operation = model.generate_video(
+                prompt=prompt,
+                duration_seconds=5,
+                aspect_ratio=aspect_ratio,
+            )
+        return operation
+    except Exception as e:
+        raise VertexAIError(
+            f"Veo 2 submission failed: {e}",
+            skill="video-generator",
+            code="VERTEX_VIDEO_ERROR",
+        ) from e
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        try:
-            resp = await client.post(SUBMIT_URL, headers=_headers(), json=payload)
-            resp.raise_for_status()
-            return resp.json()
-        except httpx.HTTPStatusError as exc:
-            logger.error("FAL submit HTTP %s: %s", exc.response.status_code, exc.response.text)
-            raise FALError(
-                message=f"FAL API error: {exc.response.status_code}",
+
+async def poll_video_operation(
+    operation,
+    timeout_seconds: int = 300,
+) -> bytes:
+    """Poll Veo 2 operation every 10s until done. Timeout 300s."""
+    start = time.monotonic()
+    while True:
+        if operation.done():
+            result = operation.result()
+            return result.videos[0]._video_bytes
+        elapsed = time.monotonic() - start
+        if elapsed > timeout_seconds:
+            raise VertexAITimeoutError(
+                f"Veo 2 timeout after {timeout_seconds}s",
                 skill="video-generator",
-                code="FAL_HTTP_ERROR",
-            ) from exc
-        except httpx.TimeoutException as exc:
-            logger.error("FAL submit timeout")
-            raise FALError(
-                message="FAL API request timed out",
-                skill="video-generator",
-                code="FAL_TIMEOUT",
-            ) from exc
-
-
-async def poll_video(request_id: str) -> dict:
-    """Poll for video generation completion. Returns result on success."""
-    status_url = f"{SUBMIT_URL}/requests/{request_id}/status"
-    elapsed = 0.0
-
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        while elapsed < POLL_TIMEOUT:
-            try:
-                resp = await client.get(status_url, headers=_headers())
-                resp.raise_for_status()
-                data = resp.json()
-            except httpx.HTTPStatusError as exc:
-                logger.error("FAL poll HTTP %s: %s", exc.response.status_code, exc.response.text)
-                raise FALError(
-                    message=f"FAL poll error: {exc.response.status_code}",
-                    skill="video-generator",
-                    code="FAL_POLL_ERROR",
-                ) from exc
-            except httpx.TimeoutException as exc:
-                logger.warning("FAL poll request timed out, retrying")
-                await asyncio.sleep(POLL_INTERVAL)
-                elapsed += POLL_INTERVAL
-                continue
-
-            status = data.get("status")
-            if status == "COMPLETED":
-                return data
-            if status in ("FAILED", "CANCELLED"):
-                raise FALError(
-                    message=f"Video generation {status.lower()}: {data.get('error', 'unknown')}",
-                    skill="video-generator",
-                    code="FAL_GENERATION_FAILED",
-                )
-
-            await asyncio.sleep(POLL_INTERVAL)
-            elapsed += POLL_INTERVAL
-
-    raise FALTimeoutError(
-        message=f"Video generation timed out after {POLL_TIMEOUT}s (request_id={request_id})",
-        skill="video-generator",
-        code="FAL_TIMEOUT",
-    )
+                code="VERTEX_VIDEO_TIMEOUT",
+            )
+        await asyncio.sleep(10)

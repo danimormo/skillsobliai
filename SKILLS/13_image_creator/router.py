@@ -3,14 +3,14 @@ import logging
 from fastapi import APIRouter, Header, HTTPException
 
 from core.errors import (
-    FALError,
     InsufficientCreditsError,
     InvalidParamsError,
+    VertexAIError,
 )
 from core.skill_interface import SkillContext, SkillResult
 
-from SKILLS.image_creator.schemas import ImageCreatorInput, ImageCreatorOutput
-from SKILLS.image_creator.service import ImageCreatorSkill
+from .schemas import ImageCreatorInput, ImageCreatorOutput
+from .service import ImageCreatorSkill
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ async def run_image_creator(
     body: ImageCreatorInput,
     authorization: str = Header(...),
 ) -> SkillResult[ImageCreatorOutput]:
-    """Generate product images via FAL.ai Flux.2 Pro."""
+    """Generate product images via Google Vertex AI Imagen 3."""
     user_id = _extract_user_id(authorization)
     ctx = SkillContext(user_id=user_id)
 
@@ -44,7 +44,7 @@ async def run_image_creator(
         raise HTTPException(status_code=422, detail=exc.message) from exc
     except InsufficientCreditsError as exc:
         raise HTTPException(status_code=402, detail=exc.message) from exc
-    except FALError as exc:
+    except VertexAIError as exc:
         raise HTTPException(status_code=502, detail=exc.message) from exc
 
     return result

@@ -1,12 +1,12 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class SupplierResearchInput(BaseModel):
     product_name: str
     target_price_usd: float | None = None
     ship_to_country: str = "US"
-    sources: list[str] = Field(default=["aliexpress", "cj", "spocket"])
     limit_per_source: int = 10
+    product_image_url: str | None = None
 
 
 class SupplierProduct(BaseModel):
@@ -31,5 +31,6 @@ class SupplierResearchOutput(BaseModel):
     best_price: SupplierProduct | None = None
     best_margin: SupplierProduct | None = None
     fastest_shipping: SupplierProduct | None = None
-    supplier_links: dict = {}
+    supplier_links_static: dict = {}
+    vision_supplier_links: dict = {}
     price_estimate: dict | None = None

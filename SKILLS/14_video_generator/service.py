@@ -4,12 +4,17 @@ import uuid
 
 import httpx
 
-from core.errors import FALError, FALTimeoutError, InsufficientCreditsError, InvalidParamsError
+from core.errors import (
+    InsufficientCreditsError,
+    InvalidParamsError,
+    VertexAIError,
+    VertexAITimeoutError,
+)
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
 from core.supabase_client import get_supabase
 
-from SKILLS.video_generator.api_client import poll_video, submit_video
-from SKILLS.video_generator.schemas import (
+from .api_client import poll_video_operation, submit_video_generation
+from .schemas import (
     VideoGeneratorInput,
     VideoGeneratorOutput,
 )
@@ -17,15 +22,15 @@ from SKILLS.video_generator.schemas import (
 logger = logging.getLogger(__name__)
 
 SKILL_NAME = "video-generator"
-STORAGE_BUCKET = "generated-videos"
+STORAGE_BUCKET = "creative-videos"
 SIGNED_URL_TTL = 86400  # 24 hours
 VIDEO_CREDIT_COST = 1
 
 
 class VideoGeneratorSkill(BaseSkill[VideoGeneratorInput, VideoGeneratorOutput]):
     name = SKILL_NAME
-    version = "1.0.0"
-    description = "Generate short product videos via FAL.ai Kling 2.6"
+    version = "2.0.0"
+    description = "Generate short product videos via Google Vertex AI Veo 2"
     consumes_credits = True
 
     def validate(self, input: VideoGeneratorInput) -> bool:
@@ -46,7 +51,7 @@ class VideoGeneratorSkill(BaseSkill[VideoGeneratorInput, VideoGeneratorOutput]):
         supabase = get_supabase()
         job_id = str(uuid.uuid4())
 
-        # ── 1. Check video credits ──────────────────────────────────
+        # -- 1. Check video credits ----------------------------------------
         credits_resp = (
             supabase.table("user_credits")
             .select("video_credits_used, video_credits_limit")
@@ -73,59 +78,33 @@ class VideoGeneratorSkill(BaseSkill[VideoGeneratorInput, VideoGeneratorOutput]):
                 code="INSUFFICIENT_CREDITS",
             )
 
-        # ── 2. Build motion prompt ──────────────────────────────────
+        # -- 2. Build prompt -----------------------------------------------
         prompt = f"Product showcase video: {input.product_title}, smooth camera motion, professional lighting"
         if input.custom_motion_prompt:
             prompt += f", {input.custom_motion_prompt}"
 
-        # ── 3. Resolve source image ─────────────────────────────────
-        image_url = input.source_image_url
-        if not image_url:
-            raise InvalidParamsError(
-                message="source_image_url is required for video generation",
-                skill=SKILL_NAME,
-                code="MISSING_SOURCE_IMAGE",
-            )
+        # -- 3. If source_image_url provided, download image bytes ---------
+        image_bytes: bytes | None = None
+        if input.source_image_url:
+            async with httpx.AsyncClient(timeout=30.0) as http:
+                dl_resp = await http.get(input.source_image_url)
+                dl_resp.raise_for_status()
+                image_bytes = dl_resp.content
 
-        # ── 4. Submit to FAL.ai ─────────────────────────────────────
-        submit_resp = await submit_video(
+        # -- 4. Submit via Vertex AI Veo 2 ---------------------------------
+        operation = submit_video_generation(
             prompt=prompt,
-            image_url=image_url,
-            duration="5",
+            image_bytes=image_bytes,
             aspect_ratio=input.aspect_ratio,
         )
+        operation_name = getattr(operation, "operation", getattr(operation, "name", str(operation)))
 
-        request_id = submit_resp.get("request_id", "")
-        if not request_id:
-            raise FALError(
-                message="FAL did not return a request_id",
-                skill=SKILL_NAME,
-                code="FAL_NO_REQUEST_ID",
-            )
+        # -- 5. Poll until done (10s interval, 300s timeout) ---------------
+        video_bytes = await poll_video_operation(operation)
 
-        # ── 5. Poll until done ──────────────────────────────────────
-        poll_result = await poll_video(request_id)
-
-        # ── 6. Download video and upload to Supabase Storage ────────
-        video_url = poll_result.get("video", {}).get("url", "")
-        if not video_url:
-            # Try alternate response shapes
-            video_url = poll_result.get("video_url", "")
-        if not video_url:
-            raise FALError(
-                message="FAL response did not contain a video URL",
-                skill=SKILL_NAME,
-                code="FAL_NO_VIDEO_URL",
-            )
-
-        async with httpx.AsyncClient(timeout=60.0) as http:
-            dl_resp = await http.get(video_url)
-            dl_resp.raise_for_status()
-            video_bytes = dl_resp.content
-
+        # -- 6. Upload video to Supabase Storage ---------------------------
         file_size_mb = round(len(video_bytes) / (1024 * 1024), 2)
-        file_name = f"{job_id}.mp4"
-        storage_path = f"{ctx.user_id}/{file_name}"
+        storage_path = f"{ctx.user_id}/{job_id}/video.mp4"
 
         supabase.storage.from_(STORAGE_BUCKET).upload(
             path=storage_path,
@@ -133,44 +112,20 @@ class VideoGeneratorSkill(BaseSkill[VideoGeneratorInput, VideoGeneratorOutput]):
             file_options={"content-type": "video/mp4"},
         )
 
-        # ── 7. Generate signed URL ──────────────────────────────────
+        # -- 7. Generate 24h signed URL ------------------------------------
         signed = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
             path=storage_path,
             expires_in=SIGNED_URL_TTL,
         )
         video_signed_url = signed.get("signedURL", "") if isinstance(signed, dict) else ""
 
-        # Thumbnail (optional, from FAL response)
-        thumbnail_signed_url = None
-        thumbnail_url = poll_result.get("thumbnail", {}).get("url") if isinstance(poll_result.get("thumbnail"), dict) else None
-        if thumbnail_url:
-            try:
-                async with httpx.AsyncClient(timeout=30.0) as http:
-                    thumb_resp = await http.get(thumbnail_url)
-                    thumb_resp.raise_for_status()
-                    thumb_bytes = thumb_resp.content
-
-                thumb_path = f"{ctx.user_id}/{job_id}_thumb.jpg"
-                supabase.storage.from_(STORAGE_BUCKET).upload(
-                    path=thumb_path,
-                    file=thumb_bytes,
-                    file_options={"content-type": "image/jpeg"},
-                )
-                thumb_signed = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
-                    path=thumb_path,
-                    expires_in=SIGNED_URL_TTL,
-                )
-                thumbnail_signed_url = thumb_signed.get("signedURL", "") if isinstance(thumb_signed, dict) else None
-            except Exception:
-                logger.warning("Failed to download/upload thumbnail for job %s", job_id)
-
-        # ── 8. Update video credits ─────────────────────────────────
+        # -- 8. Increment video_credits_used -------------------------------
         new_used = used + VIDEO_CREDIT_COST
         supabase.table("user_credits").update(
             {"video_credits_used": new_used}
         ).eq("user_id", ctx.user_id).execute()
 
-        # ── 9. Save creative_jobs record ────────────────────────────
+        # -- 9. Save creative_jobs record ----------------------------------
         try:
             supabase.table("creative_jobs").insert(
                 {
@@ -187,20 +142,18 @@ class VideoGeneratorSkill(BaseSkill[VideoGeneratorInput, VideoGeneratorOutput]):
         except Exception:
             logger.exception("Failed to save creative_jobs record %s", job_id)
 
-        # ── 10. Return output ───────────────────────────────────────
-        duration_seconds = float(poll_result.get("duration", 5.0))
-
+        # -- 10. Return output ---------------------------------------------
         output = VideoGeneratorOutput(
             job_id=job_id,
             video_storage_path=f"{STORAGE_BUCKET}/{storage_path}",
             video_signed_url=video_signed_url,
-            thumbnail_signed_url=thumbnail_signed_url,
-            duration_seconds=duration_seconds,
+            thumbnail_signed_url=None,
+            duration_seconds=5.0,
             aspect_ratio=input.aspect_ratio,
             file_size_mb=file_size_mb,
             credits_used=VIDEO_CREDIT_COST,
             credits_remaining=limit - new_used,
-            fal_request_id=request_id,
+            vertex_operation_name=str(operation_name),
         )
 
         elapsed_ms = int((time.perf_counter() - start) * 1000)

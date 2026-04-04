@@ -1,25 +1,22 @@
+"""FastAPI router for the Video Ripper skill."""
+
+from __future__ import annotations
+
 import logging
 
 from fastapi import APIRouter, Header, HTTPException
 
-from core.errors import SkillBaseError
+from core.errors import InvalidApiKeyError, InvalidParamsError, UpstreamError
 from core.skill_interface import SkillContext, SkillResult
 
-from .schemas import KalodataRipperInput, KalodataRipperOutput
-from .service import KalodataRipperSkill
+from .schemas import VideoRipperInput, VideoRipperOutput
+from .service import VideoRipperSkill
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["kalodata-ripper"])
+router = APIRouter(tags=["video-ripper"])
 
-_skill = KalodataRipperSkill()
-
-_ERROR_STATUS_MAP = {
-    "INVALID_API_KEY": 401,
-    "INVALID_PARAMS": 422,
-    "RATE_LIMIT": 429,
-    "UPSTREAM_ERROR": 502,
-}
+_skill = VideoRipperSkill()
 
 
 def _extract_user_id(authorization: str) -> str:
@@ -32,20 +29,22 @@ def _extract_user_id(authorization: str) -> str:
     return token
 
 
-@router.post("/run", response_model=SkillResult[KalodataRipperOutput])
-async def run_kalodata_ripper(
-    body: KalodataRipperInput,
+@router.post("/run", response_model=SkillResult[VideoRipperOutput])
+async def run_video_ripper(
+    body: VideoRipperInput,
     authorization: str = Header(...),
-) -> SkillResult[KalodataRipperOutput]:
-    """Download top-performing TikTok Shop videos for a product."""
+) -> SkillResult[VideoRipperOutput]:
+    """Download winning TikTok Shop video ads for a product."""
     user_id = _extract_user_id(authorization)
     ctx = SkillContext(user_id=user_id)
+
     try:
         result = await _skill.run(body, ctx)
-    except SkillBaseError as exc:
-        logger.warning("Skill error: %s", exc.message)
-        raise HTTPException(
-            status_code=_ERROR_STATUS_MAP.get(exc.code, 500),
-            detail=exc.message,
-        )
+    except InvalidParamsError as exc:
+        raise HTTPException(status_code=422, detail=exc.message) from exc
+    except InvalidApiKeyError as exc:
+        raise HTTPException(status_code=401, detail=exc.message) from exc
+    except UpstreamError as exc:
+        raise HTTPException(status_code=502, detail=exc.message) from exc
+
     return result

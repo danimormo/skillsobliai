@@ -2,14 +2,12 @@ import logging
 import time
 import uuid
 
-import httpx
-
-from core.errors import FALError, InsufficientCreditsError, InvalidParamsError
+from core.errors import InsufficientCreditsError, InvalidParamsError, VertexAIError
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
 from core.supabase_client import get_supabase
 
-from SKILLS.image_creator.api_client import VARIANT_PROMPTS, image_to_image, text_to_image
-from SKILLS.image_creator.schemas import (
+from .api_client import VARIANT_PROMPTS, generate_images
+from .schemas import (
     GeneratedImage,
     ImageCreatorInput,
     ImageCreatorOutput,
@@ -18,14 +16,23 @@ from SKILLS.image_creator.schemas import (
 logger = logging.getLogger(__name__)
 
 SKILL_NAME = "image-creator"
-STORAGE_BUCKET = "generated-images"
+STORAGE_BUCKET = "creative-images"
 SIGNED_URL_TTL = 86400  # 24 hours
+
+# Aspect-ratio to pixel dimensions (for metadata)
+ASPECT_DIMENSIONS: dict[str, tuple[int, int]] = {
+    "1:1": (1024, 1024),
+    "9:16": (768, 1344),
+    "16:9": (1344, 768),
+    "3:4": (896, 1152),
+    "4:3": (1152, 896),
+}
 
 
 class ImageCreatorSkill(BaseSkill[ImageCreatorInput, ImageCreatorOutput]):
     name = SKILL_NAME
-    version = "1.0.0"
-    description = "Generate product images via FAL.ai Flux.2 Pro"
+    version = "2.0.0"
+    description = "Generate product images via Google Vertex AI Imagen 3"
     consumes_credits = True
 
     def validate(self, input: ImageCreatorInput) -> bool:
@@ -58,7 +65,7 @@ class ImageCreatorSkill(BaseSkill[ImageCreatorInput, ImageCreatorOutput]):
         supabase = get_supabase()
         job_id = str(uuid.uuid4())
 
-        # ── 1. Check image credits ──────────────────────────────────
+        # -- 1. Check image credits ----------------------------------------
         credits_resp = (
             supabase.table("user_credits")
             .select("image_credits_used, image_credits_limit")
@@ -85,78 +92,57 @@ class ImageCreatorSkill(BaseSkill[ImageCreatorInput, ImageCreatorOutput]):
                 code="INSUFFICIENT_CREDITS",
             )
 
-        # ── 2. Build prompt ─────────────────────────────────────────
-        prompt = f"{input.product_title}, {VARIANT_PROMPTS[input.variant]}"
+        # -- 2. Build prompt -----------------------------------------------
+        prompt = f"{VARIANT_PROMPTS[input.variant]}, {input.product_title}"
         if input.custom_prompt_additions:
             prompt += f", {input.custom_prompt_additions}"
 
-        # ── 3. Call FAL.ai ──────────────────────────────────────────
-        if input.source_image_url:
-            fal_response = await image_to_image(
-                prompt=prompt,
-                image_url=input.source_image_url,
-                image_size=input.image_size,
-                num_images=input.num_images,
-            )
-        else:
-            fal_response = await text_to_image(
-                prompt=prompt,
-                image_size=input.image_size,
-                num_images=input.num_images,
-            )
+        # -- 3. Call Vertex AI Imagen 3 (synchronous) ----------------------
+        image_bytes_list = generate_images(
+            prompt=prompt,
+            num_images=input.num_images,
+            aspect_ratio=input.aspect_ratio,
+        )
 
-        # ── 4. Download and upload generated images ─────────────────
-        fal_images = fal_response.get("images", [])
+        # -- 4. Upload bytes to Supabase Storage ---------------------------
+        width, height = ASPECT_DIMENSIONS.get(input.aspect_ratio, (1024, 1024))
         generated: list[GeneratedImage] = []
 
-        async with httpx.AsyncClient(timeout=30.0) as http:
-            for idx, img_data in enumerate(fal_images):
-                img_url = img_data["url"]
-                width = img_data.get("width", 0)
-                height = img_data.get("height", 0)
-                seed = img_data.get("seed")
+        for idx, image_bytes in enumerate(image_bytes_list):
+            file_name = f"{job_id}_{idx}.png"
+            storage_path = f"{ctx.user_id}/{job_id}/{file_name}"
 
-                # Download image bytes
-                dl_resp = await http.get(img_url)
-                dl_resp.raise_for_status()
-                image_bytes = dl_resp.content
+            supabase.storage.from_(STORAGE_BUCKET).upload(
+                path=storage_path,
+                file=image_bytes,
+                file_options={"content-type": "image/png"},
+            )
 
-                # Upload to Supabase Storage
-                file_name = f"{job_id}_{idx}.png"
-                storage_path = f"{ctx.user_id}/{file_name}"
+            # -- 5. Generate 24h signed URL --------------------------------
+            signed = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
+                path=storage_path,
+                expires_in=SIGNED_URL_TTL,
+            )
+            signed_url = signed.get("signedURL", "") if isinstance(signed, dict) else ""
 
-                supabase.storage.from_(STORAGE_BUCKET).upload(
-                    path=storage_path,
-                    file=image_bytes,
-                    file_options={"content-type": "image/png"},
+            generated.append(
+                GeneratedImage(
+                    storage_path=f"{STORAGE_BUCKET}/{storage_path}",
+                    signed_url=signed_url,
+                    prompt_used=prompt,
+                    width=width,
+                    height=height,
+                    variant=input.variant,
                 )
+            )
 
-                # ── 5. Generate signed URL ──────────────────────────
-                signed = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
-                    path=storage_path,
-                    expires_in=SIGNED_URL_TTL,
-                )
-                signed_url = signed.get("signedURL", "") if isinstance(signed, dict) else ""
-
-                generated.append(
-                    GeneratedImage(
-                        storage_path=f"{STORAGE_BUCKET}/{storage_path}",
-                        signed_url=signed_url,
-                        prompt_used=prompt,
-                        fal_seed=seed,
-                        width=width,
-                        height=height,
-                        variant=input.variant,
-                    )
-                )
-
-        # ── 6. Update credits ───────────────────────────────────────
+        # -- 6. Increment image_credits_used -------------------------------
         new_used = used + len(generated)
         supabase.table("user_credits").update(
             {"image_credits_used": new_used}
         ).eq("user_id", ctx.user_id).execute()
 
-        # ── 7. Save creative_jobs record ────────────────────────────
+        # -- 7. Save creative_jobs record ----------------------------------
         output_urls = [g.signed_url for g in generated]
         try:
             supabase.table("creative_jobs").insert(
@@ -174,7 +160,7 @@ class ImageCreatorSkill(BaseSkill[ImageCreatorInput, ImageCreatorOutput]):
         except Exception:
             logger.exception("Failed to save creative_jobs record %s", job_id)
 
-        # ── 8. Return output ────────────────────────────────────────
+        # -- 8. Return output ----------------------------------------------
         output = ImageCreatorOutput(
             job_id=job_id,
             images=generated,
