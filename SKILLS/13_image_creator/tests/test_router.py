@@ -20,10 +20,9 @@ def _make_skill_result() -> SkillResult[ImageCreatorOutput]:
             job_id="job-001",
             images=[
                 GeneratedImage(
-                    storage_path="generated-images/user/job-001_0.png",
+                    storage_path="creative-images/user/job-001/job-001_0.png",
                     signed_url="https://storage.example.com/signed",
                     prompt_used="test prompt",
-                    fal_seed=42,
                     width=1024,
                     height=1024,
                     variant="product_shot",
@@ -50,7 +49,7 @@ def test_run_success():
                 "product_title": "Organic Matcha Powder",
                 "variant": "product_shot",
                 "num_images": 1,
-                "image_size": "square_hd",
+                "aspect_ratio": "1:1",
             },
             headers={"Authorization": "Bearer test-user-001"},
         )

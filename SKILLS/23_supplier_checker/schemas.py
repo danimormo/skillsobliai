@@ -9,6 +9,7 @@ class SupplierCheckerInput(BaseModel):
     daily_budget_usd: float = 30.0
     daily_orders_estimate: float = 2.0
     target_countries: list[str] = ["IT"]
+    product_image_url: str | None = None
 
 
 class SupplierCheckerOutput(BaseModel):

@@ -3,9 +3,11 @@ import json
 import logging
 
 import httpx
+import anthropic
+from google.cloud import vision
 
 from core.config import settings
-from core.errors import InvalidApiKeyError, UpstreamError
+from core.errors import GoogleVisionError, InvalidApiKeyError, UpstreamError
 
 logger = logging.getLogger(__name__)
 
@@ -81,30 +83,66 @@ async def search_aliexpress(
     )
 
 
-async def estimate_price_with_ai(title: str) -> dict:
+def find_supplier_via_vision(image_url: str) -> dict:
+    """Use Google Vision Web Detection to find AliExpress/Alibaba links from a product image.
+
+    Returns a dict with aliexpress_links and alibaba_links found via reverse image search.
+    """
+    try:
+        client = vision.ImageAnnotatorClient()
+        image = vision.Image()
+        image.source.image_uri = image_url
+
+        response = client.web_detection(image=image)
+        web = response.web_detection
+
+        aliexpress_links, alibaba_links = [], []
+
+        for page in (web.pages_with_matching_images or []):
+            url = page.url
+            if "aliexpress.com" in url:
+                aliexpress_links.append(url)
+            elif "alibaba.com" in url:
+                alibaba_links.append(url)
+
+        for match in (web.full_matching_images or []):
+            if "aliexpress.com" in match.url:
+                aliexpress_links.append(match.url)
+
+        return {
+            "aliexpress_links": list(set(aliexpress_links))[:5],
+            "alibaba_links": list(set(alibaba_links))[:5],
+        }
+    except Exception as e:
+        raise GoogleVisionError(
+            f"Vision API error: {e}",
+            skill=SKILL_NAME,
+            code="VISION_ERROR",
+        ) from e
+
+
+async def estimate_price_with_claude(title: str) -> dict:
     """Use Anthropic Claude Haiku to estimate supplier cost for a product.
 
     Returns a dict with keys: supplier_cost_usd, recommended_price_usd,
     market_avg_usd, competition_level.
     """
-    import anthropic
-
-    client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
     prompt = (
         f"You are a dropshipping pricing expert. For the product '{title}', "
         "estimate the following in JSON format only (no markdown, no explanation):\n"
         "{\n"
-        '  "supplier_cost_usd": <float, estimated AliExpress/CJ cost>,\n'
+        '  "supplier_cost_usd": <float, estimated AliExpress cost>,\n'
         '  "recommended_price_usd": <float, recommended retail price>,\n'
         '  "market_avg_usd": <float, average market selling price>,\n'
-        '  "competition_level": "<low|medium|high>"\n'
+        '  "competition_level": "<low|medium|high|very_high>"\n'
         "}\n"
         "Base your estimates on typical dropshipping margins and AliExpress pricing."
     )
 
-    response = client.messages.create(
-        model="claude-3-5-haiku-20241022",
+    response = await client.messages.create(
+        model=settings.ANTHROPIC_MODEL_FAST,
         max_tokens=256,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -118,7 +156,7 @@ async def estimate_price_with_ai(title: str) -> dict:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        logger.error("Failed to parse AI pricing response: %s", text)
+        logger.error("Failed to parse Claude pricing response: %s", text)
         return {
             "supplier_cost_usd": 0.0,
             "recommended_price_usd": 0.0,

@@ -30,7 +30,7 @@ async def run_supplier_research(
     body: SupplierResearchInput,
     authorization: str = Header(...),
 ) -> SkillResult[SupplierResearchOutput]:
-    """Run a supplier research query across AliExpress, CJDropshipping, and Spocket."""
+    """Run a supplier research query via AliExpress and Google Vision."""
     user_id = _extract_user_id(authorization)
     ctx = SkillContext(user_id=user_id)
 

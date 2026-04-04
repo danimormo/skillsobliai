@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -24,7 +24,7 @@ def sample_input():
         product_title="Organic Matcha Powder",
         variant="product_shot",
         num_images=1,
-        image_size="square_hd",
+        aspect_ratio="1:1",
     )
 
 
@@ -55,7 +55,6 @@ def _mock_supabase():
 
     def table_router(name):
         if name == "user_credits":
-            # Return select_chain for first call (select), update_chain for update
             tbl = MagicMock()
             tbl.select = select_chain.select
             tbl.update = update_chain.update
@@ -73,27 +72,11 @@ def _mock_supabase():
     return mock_sb
 
 
-def _fal_response(num_images=1):
-    return {
-        "images": [
-            {
-                "url": f"https://fal.ai/output/img_{i}.png",
-                "width": 1024,
-                "height": 1024,
-                "seed": 42 + i,
-            }
-            for i in range(num_images)
-        ]
-    }
-
-
 @pytest.mark.asyncio
 async def test_run_happy_path(skill, ctx, sample_input):
     """Successful generation returns images and deducts credits."""
     mock_sb = _mock_supabase()
-    mock_http_resp = MagicMock()
-    mock_http_resp.content = b"\x89PNG fake image bytes"
-    mock_http_resp.raise_for_status = MagicMock()
+    fake_image_bytes = b"\x89PNG fake image bytes"
 
     with (
         patch(
@@ -101,14 +84,8 @@ async def test_run_happy_path(skill, ctx, sample_input):
             return_value=mock_sb,
         ),
         patch(
-            "SKILLS.image_creator.service.text_to_image",
-            new_callable=AsyncMock,
-            return_value=_fal_response(1),
-        ),
-        patch(
-            "httpx.AsyncClient.get",
-            new_callable=AsyncMock,
-            return_value=mock_http_resp,
+            "SKILLS.image_creator.service.generate_images",
+            return_value=[fake_image_bytes],
         ),
     ):
         result = await skill.run(sample_input, ctx)
@@ -119,6 +96,8 @@ async def test_run_happy_path(skill, ctx, sample_input):
     assert result.data.credits_used == 1
     assert result.data.credits_remaining == 94  # 100 - 5 - 1
     assert result.data.images[0].variant == "product_shot"
+    assert result.data.images[0].width == 1024
+    assert result.data.images[0].height == 1024
 
 
 @pytest.mark.asyncio

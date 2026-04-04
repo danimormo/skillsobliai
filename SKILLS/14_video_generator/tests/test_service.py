@@ -4,7 +4,7 @@ import pytest
 
 from SKILLS.video_generator.schemas import VideoGeneratorInput
 from SKILLS.video_generator.service import VideoGeneratorSkill
-from core.errors import FALTimeoutError, InsufficientCreditsError, InvalidParamsError
+from core.errors import InsufficientCreditsError, InvalidParamsError
 from core.skill_interface import SkillContext
 
 
@@ -75,16 +75,16 @@ def _mock_supabase():
 async def test_run_happy_path(skill, ctx, sample_input):
     """Successful generation returns video output and deducts credits."""
     mock_sb = _mock_supabase()
-    mock_http_resp = MagicMock()
-    mock_http_resp.content = b"\x00\x00\x00 ftypisom" + b"\x00" * 1000
-    mock_http_resp.raise_for_status = MagicMock()
+    fake_video_bytes = b"\x00\x00\x00 ftypisom" + b"\x00" * 1000
 
-    submit_resp = {"request_id": "req-abc-123"}
-    poll_resp = {
-        "status": "COMPLETED",
-        "video": {"url": "https://fal.ai/output/video.mp4"},
-        "duration": 5.0,
-    }
+    # Mock the operation returned by submit_video_generation
+    mock_operation = MagicMock()
+    mock_operation.name = "projects/test/locations/us-central1/operations/op-123"
+
+    # Mock httpx download for source image
+    mock_http_resp = MagicMock()
+    mock_http_resp.content = b"\x89PNG fake image bytes"
+    mock_http_resp.raise_for_status = MagicMock()
 
     with (
         patch(
@@ -92,14 +92,13 @@ async def test_run_happy_path(skill, ctx, sample_input):
             return_value=mock_sb,
         ),
         patch(
-            "SKILLS.video_generator.service.submit_video",
-            new_callable=AsyncMock,
-            return_value=submit_resp,
+            "SKILLS.video_generator.service.submit_video_generation",
+            return_value=mock_operation,
         ),
         patch(
-            "SKILLS.video_generator.service.poll_video",
+            "SKILLS.video_generator.service.poll_video_operation",
             new_callable=AsyncMock,
-            return_value=poll_resp,
+            return_value=fake_video_bytes,
         ),
         patch(
             "httpx.AsyncClient.get",
@@ -113,9 +112,9 @@ async def test_run_happy_path(skill, ctx, sample_input):
     assert result.data is not None
     assert result.data.credits_used == 1
     assert result.data.credits_remaining == 46  # 50 - 3 - 1
-    assert result.data.fal_request_id == "req-abc-123"
     assert result.data.duration_seconds == 5.0
     assert result.data.aspect_ratio == "9:16"
+    assert "op-123" in result.data.vertex_operation_name
 
 
 @pytest.mark.asyncio

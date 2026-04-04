@@ -5,6 +5,7 @@ class SaturationDetectorInput(BaseModel):
     product_title: str
     product_keywords: list[str] = []
     sample_size: int = Field(default=100, le=500)
+    product_image_url: str | None = None
 
 
 class SaturationDetectorOutput(BaseModel):
