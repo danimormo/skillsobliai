@@ -129,7 +129,6 @@ class SupplierCheckerSkill(BaseSkill[SupplierCheckerInput, SupplierCheckerOutput
                         client, input.product_title, limit=10
                     )
                 if products:
-                    # Sort by price and pick the cheapest
                     for p in products:
                         price = p.get("price", p.get("salePrice", p.get("sale_price")))
                         if price is not None:
@@ -138,7 +137,7 @@ class SupplierCheckerSkill(BaseSkill[SupplierCheckerInput, SupplierCheckerOutput
                             except (ValueError, TypeError):
                                 continue
                             alternative_suppliers.append({
-                                "source": "aliexpress",
+                                "source": "aliexpress_api",
                                 "title": p.get("title", p.get("productTitle", "")),
                                 "price_usd": price_val,
                                 "url": p.get("url", p.get("productUrl", "")),
@@ -147,18 +146,33 @@ class SupplierCheckerSkill(BaseSkill[SupplierCheckerInput, SupplierCheckerOutput
                     if alternative_suppliers:
                         alternative_suppliers.sort(key=lambda x: x["price_usd"])
                         best_supplier_cost = alternative_suppliers[0]["price_usd"]
-                        best_supplier_source = "aliexpress"
+                        best_supplier_source = "aliexpress_api"
             except (UpstreamError, Exception) as exc:
                 logger.warning("AliExpress search failed: %s", exc)
 
-            # Fallback to AI estimate if no AliExpress results
+            # Try Google Vision if image URL provided and no result yet
+            if best_supplier_cost is None and input.product_image_url:
+                try:
+                    vision_links = api_client.find_supplier_via_vision(input.product_image_url)
+                    if vision_links.get("aliexpress_links") or vision_links.get("alibaba_links"):
+                        alternative_suppliers.append({
+                            "source": "vision_match",
+                            "title": input.product_title,
+                            "aliexpress_links": vision_links.get("aliexpress_links", []),
+                            "alibaba_links": vision_links.get("alibaba_links", []),
+                        })
+                        best_supplier_source = "vision_match"
+                except Exception as exc:
+                    logger.warning("Google Vision supplier lookup failed: %s", exc)
+
+            # Fallback to Claude Haiku estimate if still no results
             if best_supplier_cost is None:
                 try:
-                    ai_estimate = await api_client.estimate_price_with_ai(input.product_title)
+                    ai_estimate = await api_client.estimate_price_with_claude(input.product_title)
                     best_supplier_cost = ai_estimate.get("supplier_cost_usd", 0.0)
-                    best_supplier_source = "ai_estimate"
+                    best_supplier_source = "claude_estimate"
                     alternative_suppliers.append({
-                        "source": "ai_estimate",
+                        "source": "claude_estimate",
                         "title": input.product_title,
                         "price_usd": best_supplier_cost,
                         "recommended_price": ai_estimate.get("recommended_price_usd"),
@@ -166,7 +180,7 @@ class SupplierCheckerSkill(BaseSkill[SupplierCheckerInput, SupplierCheckerOutput
                         "competition": ai_estimate.get("competition_level"),
                     })
                 except Exception as exc:
-                    logger.error("AI price estimation failed: %s", exc)
+                    logger.error("Claude price estimation failed: %s", exc)
                     raise UpstreamError(
                         message="Could not determine supplier cost from any source",
                         skill=SKILL_NAME,

@@ -10,7 +10,7 @@ class SupplierResearchInput(BaseModel):
 
 
 class SupplierProduct(BaseModel):
-    source: str  # "aliexpress" | "cj" | "spocket"
+    source: str  # "aliexpress"
     product_id: str
     title: str
     cost_usd: float
