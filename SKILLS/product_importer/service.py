@@ -58,10 +58,10 @@ class ProductImporterSkill(BaseSkill[ProductImportInput, ProductImportOutput]):
         try:
             creds_resp = (
                 supabase.table("user_integrations")
-                .select("access_token")
+                .select("access_token, metadata")
                 .eq("user_id", ctx.user_id)
                 .eq("provider", "shopify")
-                .eq("shop_domain", input.shop_domain)
+                .eq("status", "active")
                 .limit(1)
                 .execute()
             )
@@ -89,10 +89,8 @@ class ProductImporterSkill(BaseSkill[ProductImportInput, ProductImportOutput]):
                 {
                     "id": job_id,
                     "user_id": ctx.user_id,
-                    "request_id": ctx.request_id,
-                    "skill": SKILL_NAME,
                     "shop_domain": input.shop_domain,
-                    "title": input.title,
+                    "product_data": input.model_dump(),
                     "status": "pending",
                 }
             ).execute()

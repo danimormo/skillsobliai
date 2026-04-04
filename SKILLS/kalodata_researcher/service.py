@@ -79,12 +79,15 @@ class KalodataResearcherSkill(BaseSkill[KalodataResearchInput, KalodataResearchO
                 )
                 for kw in input.keywords
             ]
-            search_results = await asyncio.gather(*search_tasks)
+            search_results = await asyncio.gather(*search_tasks, return_exceptions=True)
 
             # Flatten and deduplicate by product_id
             seen_ids: set[str] = set()
             raw_products: list[dict[str, Any]] = []
             for batch in search_results:
+                if isinstance(batch, Exception):
+                    logger.warning("Skipping failed keyword search: %s", batch)
+                    continue
                 for p in batch:
                     pid = str(p.get("product_id", p.get("id", "")))
                     if pid and pid not in seen_ids:
@@ -141,9 +144,9 @@ class KalodataResearcherSkill(BaseSkill[KalodataResearchInput, KalodataResearchO
                 {
                     "user_id": ctx.user_id,
                     "skill": self.name,
-                    "request_id": ctx.request_id,
-                    "input_params": input.model_dump(),
+                    "query_params": input.model_dump(),
                     "result": output.model_dump(),
+                    "items_count": output.total_products,
                 }
             ).execute()
         except Exception:

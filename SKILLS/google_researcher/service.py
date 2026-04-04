@@ -238,9 +238,9 @@ class GoogleResearcherSkill(BaseSkill[GoogleResearchInput, GoogleResearchOutput]
                         {
                             "user_id": ctx.user_id,
                             "skill": SKILL_NAME,
-                            "request_id": ctx.request_id,
-                            "input_params": {"keyword": kw, "region": input.region},
+                            "query_params": {"keyword": kw, "region": input.region},
                             "result": kw_output.model_dump(),
+                            "items_count": 1,
                         }
                     ).execute()
                 except Exception:
@@ -255,9 +255,9 @@ class GoogleResearcherSkill(BaseSkill[GoogleResearchInput, GoogleResearchOutput]
                 {
                     "user_id": ctx.user_id,
                     "skill": SKILL_NAME,
-                    "request_id": ctx.request_id,
-                    "input_params": input.model_dump(),
+                    "query_params": input.model_dump(),
                     "result": output.model_dump(),
+                    "items_count": len(output.trend_data),
                 }
             ).execute()
         except Exception:

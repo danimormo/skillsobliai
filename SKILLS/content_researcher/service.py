@@ -34,7 +34,7 @@ def _classify_format_type(text: str, platform: str) -> str:
     lower = text.lower() if text else ""
     if "review" in lower:
         return "review"
-    if "transform" in lower or "before" in lower and "after" in lower:
+    if ("transform" in lower) or ("before" in lower and "after" in lower):
         return "transformation"
     if "demo" in lower or "how to" in lower or "tutorial" in lower:
         return "demo"
@@ -280,9 +280,9 @@ class ContentResearcherSkill(BaseSkill[ContentResearchInput, ContentResearchOutp
                 {
                     "user_id": ctx.user_id,
                     "skill": SKILL_NAME,
-                    "request_id": ctx.request_id,
-                    "input_params": input.model_dump(),
+                    "query_params": input.model_dump(),
                     "result": output.model_dump(),
+                    "items_count": output.total_items,
                 }
             ).execute()
         except Exception:

@@ -13,7 +13,7 @@ from .schemas import KalodataResearchInput, KalodataResearchOutput
 from .service import KalodataResearcherSkill
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/kalodata-researcher", tags=["kalodata-researcher"])
+router = APIRouter(tags=["kalodata-researcher"])
 
 _skill = KalodataResearcherSkill()
 

@@ -10,7 +10,7 @@ from SKILLS.supplier_researcher.service import SupplierResearcherSkill
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/supplier-researcher", tags=["supplier-researcher"])
+router = APIRouter(tags=["supplier-researcher"])
 
 _skill = SupplierResearcherSkill()
 

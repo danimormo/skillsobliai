@@ -10,7 +10,7 @@ from SKILLS.google_researcher.service import GoogleResearcherSkill
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/google-researcher", tags=["google-researcher"])
+router = APIRouter(tags=["google-researcher"])
 
 _skill = GoogleResearcherSkill()
 

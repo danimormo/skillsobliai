@@ -15,7 +15,7 @@ from SKILLS.product_importer.service import ProductImporterSkill
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/product-importer", tags=["product-importer"])
+router = APIRouter(tags=["product-importer"])
 
 _skill = ProductImporterSkill()
 

@@ -15,7 +15,7 @@ from SKILLS.content_researcher.service import ContentResearcherSkill
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/content-researcher", tags=["content-researcher"])
+router = APIRouter(tags=["content-researcher"])
 
 _skill = ContentResearcherSkill()
 

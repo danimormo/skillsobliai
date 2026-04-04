@@ -1,8 +1,11 @@
-from fastapi import APIRouter, HTTPException
+import logging
+
+from fastapi import APIRouter, Header, HTTPException
 
 from core.errors import (
     InvalidApiKeyError,
     InvalidParamsError,
+    RateLimitError,
     SkillBaseError,
     UpstreamError,
 )
@@ -11,41 +14,46 @@ from core.skill_interface import SkillContext, SkillResult
 from .schemas import TikTokAdsResearchInput, TikTokAdsResearchOutput
 from .service import TikTokAdsResearcherSkill
 
-router = APIRouter(prefix="/tiktok-ads-researcher", tags=["tiktok-ads-researcher"])
+logger = logging.getLogger(__name__)
+
+router = APIRouter(tags=["tiktok-ads-researcher"])
 
 _skill = TikTokAdsResearcherSkill()
 
 
-class RunRequest(TikTokAdsResearchInput):
-    """Request body extends the input schema with context fields."""
-
-    user_id: str
+def _extract_user_id(authorization: str) -> str:
+    """Extract user_id from Bearer token (placeholder implementation)."""
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid Authorization header")
+    token = authorization.removeprefix("Bearer ").strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing token")
+    return token
 
 
 @router.post("/run", response_model=SkillResult[TikTokAdsResearchOutput])
-async def run(body: RunRequest) -> SkillResult[TikTokAdsResearchOutput]:
+async def run_tiktok_ads_research(
+    body: TikTokAdsResearchInput,
+    authorization: str = Header(...),
+) -> SkillResult[TikTokAdsResearchOutput]:
     """Execute the TikTok Ads Researcher skill."""
-    ctx = SkillContext(user_id=body.user_id)
-    input_data = TikTokAdsResearchInput(
-        keywords=body.keywords,
-        regions=body.regions,
-        industry=body.industry,
-        days_range=body.days_range,
-        limit=body.limit,
-    )
+    user_id = _extract_user_id(authorization)
+    ctx = SkillContext(user_id=user_id)
 
-    if not _skill.validate(input_data):
+    if not _skill.validate(body):
         raise HTTPException(status_code=422, detail="Invalid input parameters")
 
     try:
-        result = await _skill.run(input_data, ctx)
+        result = await _skill.run(body, ctx)
     except InvalidApiKeyError as exc:
-        raise HTTPException(status_code=401, detail=exc.message)
+        raise HTTPException(status_code=401, detail=exc.message) from exc
     except InvalidParamsError as exc:
-        raise HTTPException(status_code=422, detail=exc.message)
+        raise HTTPException(status_code=422, detail=exc.message) from exc
+    except RateLimitError as exc:
+        raise HTTPException(status_code=429, detail=exc.message) from exc
     except UpstreamError as exc:
-        raise HTTPException(status_code=502, detail=exc.message)
+        raise HTTPException(status_code=502, detail=exc.message) from exc
     except SkillBaseError as exc:
-        raise HTTPException(status_code=500, detail=exc.message)
+        raise HTTPException(status_code=500, detail=exc.message) from exc
 
     return result

@@ -140,9 +140,9 @@ class KalodataRipperSkill(BaseSkill[KalodataRipperInput, KalodataRipperOutput]):
                 {
                     "user_id": ctx.user_id,
                     "skill": SKILL_NAME,
-                    "request_id": ctx.request_id,
-                    "input_params": input.model_dump(),
+                    "query_params": input.model_dump(),
                     "result": output.model_dump(),
+                    "items_count": len(ripped),
                 }
             ).execute()
         except Exception:

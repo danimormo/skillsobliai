@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any
 
@@ -51,8 +52,6 @@ class ShopifyClient:
                         logger.warning(
                             "Shopify 429 on %s, retrying in %.1fs", path, retry_after
                         )
-                        import asyncio
-
                         await asyncio.sleep(retry_after)
                         continue
 
@@ -64,8 +63,6 @@ class ShopifyClient:
                             attempt + 1,
                             MAX_RETRIES,
                         )
-                        import asyncio
-
                         await asyncio.sleep(RETRY_BACKOFF[attempt])
                         continue
 

@@ -10,7 +10,7 @@ from SKILLS.meta_ads_researcher.service import MetaAdsResearcherSkill
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/meta-ads-researcher", tags=["meta-ads-researcher"])
+router = APIRouter(tags=["meta-ads-researcher"])
 
 _skill = MetaAdsResearcherSkill()
 
