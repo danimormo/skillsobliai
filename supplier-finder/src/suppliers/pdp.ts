@@ -5,6 +5,7 @@ import os from 'node:os';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { pickUserAgent } from '../utils/userAgents.js';
+import { newStealthContext, detectCaptcha, humanDelay } from '../utils/browser.js';
 import { embedImage, similarityScore } from '../matching/clipSimilarity.js';
 import { titleScore as textTitleScore, keywordHitRate } from '../matching/textSimilarity.js';
 import type { SupplierListing } from '../types.js';
@@ -258,5 +259,92 @@ function absolutize(src: string, base: string): string {
     return new URL(src, base).toString();
   } catch {
     return src;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Generic crawl helpers used by every supplier integration.
+   Each concrete supplier overrides only the URL shape + (optionally) the
+   selector used to identify an organic PDP link on the search page.
+   ──────────────────────────────────────────────────────────────────────── */
+
+export interface FetchPdpOptions {
+  /** Extra CSS selector to try for the title when og:title is missing. */
+  titleFallbackSelector?: string;
+  /** If true, accept status 403/451 (some supplier geoblock pages still
+   *  render structured data we can use). Defaults to false. */
+  acceptPartial?: boolean;
+}
+
+export async function fetchPdp(
+  url: string,
+  opts: FetchPdpOptions = {},
+): Promise<SupplierListing | null> {
+  const ctx = await newStealthContext();
+  const page = await ctx.newPage();
+  try {
+    const res = await page.goto(url, { waitUntil: 'domcontentloaded' });
+    if (!res) return null;
+    const status = res.status();
+    if (status >= 400 && !(opts.acceptPartial && (status === 403 || status === 451))) return null;
+
+    await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => null);
+    if (await detectCaptcha(page)) throw new Error('captcha wall on PDP');
+
+    await humanDelay(300, 800);
+    const html = await page.content();
+    const finalUrl = page.url();
+    const $ = cheerio.load(html);
+
+    const title =
+      extractTitle($) ||
+      (opts.titleFallbackSelector ? $(opts.titleFallbackSelector).first().text().trim() : '');
+    if (!title) return null;
+
+    const price = extractPrice(html, $);
+    const thumbnail = extractThumbnail($, finalUrl);
+    const shippingDays = extractShippingDays($);
+
+    return {
+      url: finalUrl,
+      title,
+      ...(price ? { price } : {}),
+      ...(thumbnail ? { thumbnail } : {}),
+      ...(shippingDays ? { estimatedShippingDays: shippingDays } : {}),
+    };
+  } finally {
+    await ctx.close().catch(() => {});
+  }
+}
+
+/**
+ * Navigate a supplier search results page and return the first organic
+ * product URL whose href matches `productUrlRegex`.
+ *
+ * The matcher is deliberately a URL regex (not a CSS class) because class
+ * names rotate every few weeks on these sites whereas PDP URL shapes are
+ * far more stable (e.g. `/item/\d+\.html`, `/product/\d+`, `/-g-\d+\.html`).
+ */
+export async function pickFirstSearchHref(
+  searchUrl: string,
+  productUrlRegex: RegExp,
+): Promise<string | undefined> {
+  const ctx = await newStealthContext();
+  const page = await ctx.newPage();
+  try {
+    const res = await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
+    if (!res || res.status() >= 400) return undefined;
+    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => null);
+    if (await detectCaptcha(page)) throw new Error('captcha wall on search page');
+
+    const hrefs = await page.$$eval('a[href]', (els) =>
+      (els as HTMLAnchorElement[]).map((a) => a.href),
+    );
+    for (const href of hrefs) {
+      if (productUrlRegex.test(href)) return href;
+    }
+    return undefined;
+  } finally {
+    await ctx.close().catch(() => {});
   }
 }
