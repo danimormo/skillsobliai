@@ -1,0 +1,15 @@
+{
+  "source_url": "https://www.allbirds.com/products/mens-tree-runners",
+  "shopify_shop": "mystore.myshopify.com",
+  "shopify_access_token": "shpat_REPLACE_ME",
+  "options": {
+    "markup_multiplier": 2.5,
+    "target_language": "it",
+    "target_market": "IT",
+    "copy_mode": "translate",
+    "rewrite_instructions": null,
+    "publish": false,
+    "collection_handle": "imported-products",
+    "max_products": 50
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "shopify-product-cloner",
+  "version": "1.0.0",
+  "description": "Universal Shopify product cloner: any source URL → Shopify store",
+  "type": "module",
+  "main": "clone.js",
+  "scripts": {
+    "start": "node clone.js",
+    "clone": "node clone.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "p-queue": "^8.0.1",
+    "p-retry": "^6.2.0",
+    "playwright": "^1.48.0",
+    "slugify": "^1.6.6"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
