@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.local
+*.log
+.DS_Store
+tmp/
+.cache/
+# Playwright
+/playwright-report/
+/test-results/
+# Xenova transformers model cache
+models/
