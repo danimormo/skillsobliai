@@ -1,10 +1,11 @@
 /**
  * Supplier Finder — public library entry point.
  *
- * The orchestrator here is intentionally minimal in Step 1: it normalizes
- * input, returns `NOT_AVAILABLE` for every supplier, and records timing.
- * Each subsequent step wires in a real stage (OCR → CLIP → reverse-search →
- * per-supplier crawlers → cache).
+ * Each step plugs a new stage into the pipeline. Current wiring (Step 2):
+ *   1. Input normalization: URL → Playwright + Cheerio scrape + image download,
+ *      or raw image → Sharp preprocessing.
+ *   2. OCR: Tesseract.js on the preprocessed JPEG → keywords.
+ *   3–5. (pending) CLIP embedding, reverse image search, supplier crawlers.
  */
 import { randomUUID } from 'node:crypto';
 import type {
@@ -16,54 +17,53 @@ import type {
 } from './types.js';
 import { SUPPLIER_NAMES, PipelineError } from './types.js';
 import { logger, requestLogger } from './utils/logger.js';
+import { preprocessImage } from './input/imageHandler.js';
+import { extractFromUrl } from './input/urlExtractor.js';
+import { runOcr, buildSearchKeywords } from './ocr/tesseractEngine.js';
 
 export * from './types.js';
 export { config } from './config.js';
 export { logger };
 
-/** Placeholder: later steps replace this with a real orchestration. */
 export async function findSuppliers(input: FinderInput): Promise<FinderResult> {
   const requestId = randomUUID();
   const log = requestLogger(requestId);
   const started = Date.now();
 
   validateInput(input);
+  const inputType = input.url ? 'url' : 'image';
+  log.info({ inputType, suppliers: input.suppliers?.length ?? SUPPLIER_NAMES.length }, 'pipeline: start');
+
+  const search = await buildSearchInput(requestId, input);
 
   log.info(
     {
-      hasUrl: !!input.url,
-      hasImage: !!(input.imageBase64 || input.imagePath),
-      suppliers: input.suppliers?.length ?? SUPPLIER_NAMES.length,
+      imagePath: search.imagePath,
+      title: search.title,
+      keywords: search.keywords,
+      warnings: search.warnings,
     },
-    'pipeline: start',
+    'pipeline: input normalized',
   );
 
-  // Step 1 stub: no preprocessing yet; all suppliers return NOT_AVAILABLE.
-  const search: SearchInput = {
-    requestId,
-    inputType: input.url ? 'url' : 'image',
-    imagePath: '',
-    ...(input.url ? { originalUrl: input.url } : {}),
-    keywords: [],
-    warnings: ['pipeline running in Step-1 skeleton mode'],
-  };
-
+  // Step 2 stop: suppliers still return NOT_AVAILABLE until Steps 3–6 land.
   const targets: SupplierName[] =
     input.suppliers && input.suppliers.length > 0 ? input.suppliers : [...SUPPLIER_NAMES];
 
   const results: SupplierResponse[] = targets.map((supplier) => ({
     supplier,
     status: 'NOT_AVAILABLE',
-    reason: 'pipeline not yet implemented',
+    reason: 'supplier module not yet wired (Step 2)',
   }));
 
   const executionTimeMs = Date.now() - started;
-  log.info({ executionTimeMs, resultCount: results.length }, 'pipeline: done');
+  log.info({ executionTimeMs }, 'pipeline: done');
 
   return {
     query: {
       inputType: search.inputType,
-      ...(input.url ? { originalSource: input.url } : {}),
+      ...(search.originalUrl ? { originalSource: search.originalUrl } : {}),
+      ...(search.title ? { extractedTitle: search.title } : {}),
       extractedKeywords: search.keywords,
       timestamp: new Date().toISOString(),
       requestId,
@@ -72,6 +72,51 @@ export async function findSuppliers(input: FinderInput): Promise<FinderResult> {
     results,
     executionTimeMs,
     cacheHit: false,
+  };
+}
+
+/** Runs Step 1+2: turn FinderInput into a fully-populated SearchInput. */
+export async function buildSearchInput(
+  requestId: string,
+  input: FinderInput,
+): Promise<SearchInput> {
+  const log = requestLogger(requestId);
+  const warnings: string[] = [];
+  let imagePath: string;
+  let title: string | undefined;
+  let originalUrl: string | undefined;
+
+  if (input.url) {
+    const ex = await extractFromUrl(requestId, input.url);
+    imagePath = ex.imagePath;
+    title = ex.title;
+    originalUrl = ex.finalUrl;
+    warnings.push(...ex.warnings);
+  } else {
+    const pre = await preprocessImage({
+      requestId,
+      ...(input.imagePath ? { imagePath: input.imagePath } : {}),
+      ...(input.imageBase64 ? { imageBase64: input.imageBase64 } : {}),
+    });
+    imagePath = pre.imagePath;
+    warnings.push(...pre.warnings);
+  }
+
+  const ocr = await runOcr(imagePath);
+  if (!ocr.text) warnings.push('ocr produced no text — relying on visual search only');
+  const keywords = buildSearchKeywords(title, ocr.keywords);
+
+  log.debug({ ocrChars: ocr.text.length, keywordCount: keywords.length }, 'ocr done');
+
+  return {
+    requestId,
+    inputType: input.url ? 'url' : 'image',
+    imagePath,
+    ...(originalUrl ? { originalUrl } : {}),
+    ...(title ? { title } : {}),
+    keywords,
+    ...(ocr.text ? { ocrText: ocr.text } : {}),
+    warnings,
   };
 }
 
