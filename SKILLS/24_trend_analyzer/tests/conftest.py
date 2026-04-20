@@ -29,6 +29,8 @@ for _sub in (
     "normalize.text",
     "normalize.url",
     "normalize.image",
+    "providers",
+    "providers.google_trends",
 ):
     _mod = importlib.import_module(f"SKILLS.24_trend_analyzer.{_sub}")
     sys.modules.setdefault(f"trend_analyzer.{_sub}", _mod)

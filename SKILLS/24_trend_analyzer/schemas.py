@@ -125,6 +125,19 @@ class PriceSignal(BaseModel):
     gross_margin_pct: float | None = None
 
 
+class TrendsSignal(BaseModel):
+    """Aggregated output of the Google Trends provider."""
+
+    interest_over_time: list[InterestPoint] = Field(default_factory=list)
+    geography: list[GeoInterest] = Field(default_factory=list, max_length=5)
+    related_queries_rising: list[str] = Field(default_factory=list, max_length=10)
+    related_queries_top: list[str] = Field(default_factory=list, max_length=10)
+    stale: bool = Field(
+        default=False,
+        description="True when the value was served from expired cache due to upstream failure.",
+    )
+
+
 class SeasonalityInfo(BaseModel):
     peak_months: list[str] = Field(default_factory=list, description="e.g. ['Nov', 'Dec']")
     valley_months: list[str] = Field(default_factory=list)

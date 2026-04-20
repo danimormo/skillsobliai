@@ -19,7 +19,7 @@ google-cloud-vision==3.7.2
 google-auth==2.29.0
 
 # trend-analyzer (SKILL 24)
-trendspy==0.1.7
+trendspy==0.1.6
 selectolax==0.3.21
 playwright==1.44.0
 playwright-stealth==1.0.6

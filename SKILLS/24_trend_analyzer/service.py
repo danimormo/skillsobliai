@@ -20,12 +20,14 @@ from .cost_tracker import CostTracker, tracker
 from .normalize.image import normalize_image
 from .normalize.text import normalize_text
 from .normalize.url import normalize_url
+from .providers import google_trends
 from .schemas import (
     ProductFingerprint,
     SubScore,
     TrendAnalyzerInput,
     TrendAnalyzerOutput,
     TrendReport,
+    TrendsSignal,
 )
 
 logger = logging.getLogger(__name__)
@@ -111,12 +113,24 @@ class TrendAnalyzerSkill(BaseSkill[TrendAnalyzerInput, TrendAnalyzerOutput]):
         ) as cost:
             fingerprint = await _resolve_fingerprint(input, cost)
 
+            trends_signal = await google_trends.fetch(
+                fingerprint.primary_keyword,
+                cost,
+                countries=input.countries,
+                no_cache=input.no_cache,
+            )
+
+            warnings: list[str] = []
+            if trends_signal.stale:
+                warnings.append("Google Trends returned stale/empty data.")
+            warnings.append("Phase 2b-1 — only Google Trends wired so far.")
+
             sub_scores = [
                 SubScore(
                     name=n,  # type: ignore[arg-type]
                     value=0.0,
                     weight=WEIGHTS[n],
-                    explanation="Phase 2b: providers not yet implemented.",
+                    explanation="Scoring lands in Phase 3.",
                 )
                 for n in WEIGHTS
             ]
@@ -125,10 +139,12 @@ class TrendAnalyzerSkill(BaseSkill[TrendAnalyzerInput, TrendAnalyzerOutput]):
                 fingerprint=fingerprint,
                 score=0.0,
                 verdict="WAIT",
-                rationale="Normalization done; trend/saturation providers pending.",
+                rationale="Normalization + Google Trends done; remaining providers pending.",
                 sub_scores=sub_scores,
+                interest_over_time=trends_signal.interest_over_time,
+                geography=trends_signal.geography,
                 cost=cost.snapshot(),
-                warnings=["Phase 2a — providers still pending."],
+                warnings=warnings,
             )
             output = TrendAnalyzerOutput(report=report, markdown="")
 
