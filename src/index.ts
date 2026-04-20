@@ -23,6 +23,8 @@ import { runOcr, buildSearchKeywords } from './ocr/tesseractEngine.js';
 import { embedImage } from './matching/clipSimilarity.js';
 import { runVisualSearch } from './visualSearch/index.js';
 import { getSupplier } from './suppliers/registry.js';
+import { buildCacheKey, cacheGet, cacheSet } from './utils/cache.js';
+import { config } from './config.js';
 
 export * from './types.js';
 export { config } from './config.js';
@@ -36,6 +38,17 @@ export async function findSuppliers(input: FinderInput): Promise<FinderResult> {
   validateInput(input);
   const inputType = input.url ? 'url' : 'image';
   log.info({ inputType, suppliers: input.suppliers?.length ?? SUPPLIER_NAMES.length }, 'pipeline: start');
+
+  // Cache lookup — keyed on (source, suppliers). Skipped when noCache=true
+  // or when REDIS_URL is not configured (cache layer is a graceful no-op).
+  const cacheKey = await buildCacheKey(input);
+  if (!input.noCache) {
+    const hit = await cacheGet<FinderResult>(cacheKey);
+    if (hit) {
+      log.info({ cacheKey, elapsedMs: Date.now() - started }, 'pipeline: cache hit');
+      return { ...hit, cacheHit: true };
+    }
+  }
 
   const search = await buildSearchInput(requestId, input);
 
@@ -97,7 +110,7 @@ export async function findSuppliers(input: FinderInput): Promise<FinderResult> {
   const executionTimeMs = Date.now() - started;
   log.info({ executionTimeMs }, 'pipeline: done');
 
-  return {
+  const result: FinderResult = {
     query: {
       inputType: search.inputType,
       ...(search.originalUrl ? { originalSource: search.originalUrl } : {}),
@@ -111,6 +124,14 @@ export async function findSuppliers(input: FinderInput): Promise<FinderResult> {
     executionTimeMs,
     cacheHit: false,
   };
+
+  // Write-through cache. Best-effort — failures are already logged as warn
+  // by the cache layer and never fail the request.
+  if (!input.noCache) {
+    await cacheSet(cacheKey, result, config.cacheTtlSeconds);
+  }
+
+  return result;
 }
 
 /** Runs Step 1+2: turn FinderInput into a fully-populated SearchInput. */
@@ -179,6 +200,8 @@ export async function buildSearchInput(
 }
 
 export { runVisualSearch } from './visualSearch/index.js';
+export { shutdownPipeline } from './shutdown.js';
+export { buildCacheKey } from './utils/cache.js';
 
 function validateInput(input: FinderInput): void {
   const sources = [input.url, input.imageBase64, input.imagePath].filter(Boolean);

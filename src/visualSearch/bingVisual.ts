@@ -1,6 +1,7 @@
 import { newStealthContext, detectCaptcha, humanDelay } from '../utils/browser.js';
 import { requestLogger } from '../utils/logger.js';
 import { config } from '../config.js';
+import { getDomainLimiter } from '../utils/rateLimiter.js';
 import type { SearchInput, VisualCandidate } from '../types.js';
 import { extractAnchors } from './candidates.js';
 
@@ -19,7 +20,16 @@ export async function bingVisualSearch(input: SearchInput): Promise<VisualCandid
     log.debug('skip: no public image url');
     return [];
   }
+  const limiter = getDomainLimiter('bing.com');
+  return limiter.schedule({ expiration: config.supplierTimeoutMs }, () =>
+    runBingSearch(input, log),
+  );
+}
 
+async function runBingSearch(
+  input: SearchInput,
+  log: ReturnType<typeof requestLogger>,
+): Promise<VisualCandidate[]> {
   const ctx = await newStealthContext({ locale: 'en-US' });
   const page = await ctx.newPage();
   const started = Date.now();
