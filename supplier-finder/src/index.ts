@@ -21,6 +21,7 @@ import { preprocessImage } from './input/imageHandler.js';
 import { extractFromUrl } from './input/urlExtractor.js';
 import { runOcr, buildSearchKeywords } from './ocr/tesseractEngine.js';
 import { embedImage } from './matching/clipSimilarity.js';
+import { runVisualSearch } from './visualSearch/index.js';
 
 export * from './types.js';
 export { config } from './config.js';
@@ -47,15 +48,44 @@ export async function findSuppliers(input: FinderInput): Promise<FinderResult> {
     'pipeline: input normalized',
   );
 
-  // Step 2 stop: suppliers still return NOT_AVAILABLE until Steps 3–6 land.
+  // Step 4: discover candidate URLs via reverse-image-search across 3 engines.
+  const visual = await runVisualSearch(search);
+  log.info(
+    {
+      total: visual.all.length,
+      supplierHits: Object.fromEntries(
+        [...visual.bySupplier.entries()].map(([k, v]) => [k, v.length]),
+      ),
+    },
+    'pipeline: visual search done',
+  );
+
+  // Steps 5–6 stop: supplier modules not yet wired — but we can at least
+  // surface any URL that matched a supplier domain during visual search.
   const targets: SupplierName[] =
     input.suppliers && input.suppliers.length > 0 ? input.suppliers : [...SUPPLIER_NAMES];
 
-  const results: SupplierResponse[] = targets.map((supplier) => ({
-    supplier,
-    status: 'NOT_AVAILABLE',
-    reason: 'supplier module not yet wired (Step 2)',
-  }));
+  const results: SupplierResponse[] = targets.map((supplier): SupplierResponse => {
+    const hits = visual.bySupplier.get(supplier) ?? [];
+    if (hits.length === 0) {
+      return {
+        supplier,
+        status: 'NOT_AVAILABLE',
+        reason: 'no visual match — supplier crawler pending',
+      };
+    }
+    const top = hits[0]!;
+    // Confidence is a placeholder (engine-based rank only) until Step 5
+    // plugs the CLIP validation on the candidate page's main image.
+    return {
+      supplier,
+      status: 'FOUND',
+      confidence: 60,
+      productUrl: top.url,
+      title: top.title ?? supplier,
+      ...(top.thumbnail ? { thumbnail: top.thumbnail } : {}),
+    };
+  });
 
   const executionTimeMs = Date.now() - started;
   log.info({ executionTimeMs }, 'pipeline: done');
@@ -86,12 +116,14 @@ export async function buildSearchInput(
   let imagePath: string;
   let title: string | undefined;
   let originalUrl: string | undefined;
+  let sourceImageUrl: string | undefined;
 
   if (input.url) {
     const ex = await extractFromUrl(requestId, input.url);
     imagePath = ex.imagePath;
     title = ex.title;
     originalUrl = ex.finalUrl;
+    sourceImageUrl = ex.sourceImageUrl;
     warnings.push(...ex.warnings);
   } else {
     const pre = await preprocessImage({
@@ -130,6 +162,7 @@ export async function buildSearchInput(
     inputType: input.url ? 'url' : 'image',
     imagePath,
     ...(originalUrl ? { originalUrl } : {}),
+    ...(sourceImageUrl ? { sourceImageUrl } : {}),
     ...(title ? { title } : {}),
     keywords,
     ...(ocr.text ? { ocrText: ocr.text } : {}),
@@ -137,6 +170,8 @@ export async function buildSearchInput(
     warnings,
   };
 }
+
+export { runVisualSearch } from './visualSearch/index.js';
 
 function validateInput(input: FinderInput): void {
   const sources = [input.url, input.imageBase64, input.imagePath].filter(Boolean);
