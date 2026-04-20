@@ -1,0 +1,62 @@
+[
+  {
+    "name": "stanley_quencher_40oz",
+    "description": "Stanley Quencher H2.0 40oz — viral 2023-2024, testbed for RED saturation",
+    "url": "https://www.stanley1913.com/products/adventure-quencher-travel-tumbler-40-oz",
+    "expected": {
+      "identified_by": "url",
+      "keywords_contains_any": ["stanley", "quencher", "tumbler"],
+      "min_candidates": 50,
+      "expected_zone": "red",
+      "expected_potential_markets_min": 2
+    }
+  },
+  {
+    "name": "led_neck_massager",
+    "description": "Heated LED neck massager, classic saturated dropship item",
+    "url": "https://neckrelaxshop.myshopify.com/products/led-neck-massager",
+    "expected": {
+      "identified_by": "url",
+      "keywords_contains_any": ["neck", "massager", "led"],
+      "min_candidates": 30,
+      "expected_zone": "red",
+      "expected_potential_markets_min": 2
+    }
+  },
+  {
+    "name": "magnetic_eyelashes",
+    "description": "Magnetic eyelashes with eyeliner kit — evergreen saturated",
+    "url": "https://vassoulmagnetic.com/products/magnetic-eyelashes-and-eyeliner-kit",
+    "expected": {
+      "identified_by": "url",
+      "keywords_contains_any": ["magnetic", "eyelashes"],
+      "min_candidates": 20,
+      "expected_zone": "red",
+      "expected_potential_markets_min": 2
+    }
+  },
+  {
+    "name": "posture_corrector",
+    "description": "Back posture corrector brace — classic yellow/red depending on season",
+    "url": "https://truefitly.com/products/posture-corrector",
+    "expected": {
+      "identified_by": "url",
+      "keywords_contains_any": ["posture", "corrector"],
+      "min_candidates": 15,
+      "expected_zone_in": ["yellow", "red"],
+      "expected_potential_markets_min": 2
+    }
+  },
+  {
+    "name": "niche_underwater_drone",
+    "description": "Underwater fishing drone — low saturation, GREEN expected",
+    "url": "https://www.chasing.com/products/chasing-f1-fish-finder",
+    "expected": {
+      "identified_by": "url",
+      "keywords_contains_any": ["fish", "finder", "drone"],
+      "min_candidates": 0,
+      "expected_zone_in": ["green", "yellow"],
+      "expected_potential_markets_min": 3
+    }
+  }
+]

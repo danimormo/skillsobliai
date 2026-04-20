@@ -1,0 +1,32 @@
+{
+  "name": "shopify-saturation-scanner",
+  "version": "0.1.0",
+  "description": "Feature V2 – detect cross-store Shopify saturation + blue-ocean geographic markets for a given product URL or image.",
+  "type": "module",
+  "main": "index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "worker": "node index.js --worker",
+    "test": "node --test tests/saturation.test.js",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "bullmq": "^5.1.0",
+    "cheerio": "^1.0.0-rc.12",
+    "fast-levenshtein": "^3.0.0",
+    "franc": "^6.2.0",
+    "image-hash": "^5.3.1",
+    "ioredis": "^5.3.2",
+    "p-limit": "^5.0.0",
+    "serpapi": "^2.1.0",
+    "sharp": "^0.33.0",
+    "@supabase/supabase-js": "^2.43.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  }
+}
