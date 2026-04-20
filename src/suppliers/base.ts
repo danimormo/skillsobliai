@@ -30,13 +30,10 @@ export abstract class BaseSupplier {
   abstract searchByKeywords(input: SearchInput): Promise<SupplierListing | null>;
 
   /**
-   * Given a candidate listing URL and the reference CLIP embedding,
-   * return confidence 0-100 of a visual match.
+   * Given a candidate listing and the full reference SearchInput, return
+   * confidence 0-100 of a visual + textual match.
    */
-  abstract validateMatch(
-    listing: SupplierListing,
-    referenceEmbedding: Float32Array | undefined,
-  ): Promise<number>;
+  abstract validateMatch(listing: SupplierListing, input: SearchInput): Promise<number>;
 
   async find(input: SearchInput): Promise<SupplierResponse> {
     const log = requestLogger(input.requestId).child({ supplier: this.name });
@@ -54,7 +51,7 @@ export abstract class BaseSupplier {
           if (!listing) return null;
 
           const confidence = await this.safe(
-            () => this.validateMatch(listing, input.embedding),
+            () => this.validateMatch(listing, input),
             log,
             'validateMatch',
           );

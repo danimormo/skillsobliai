@@ -22,6 +22,7 @@ import { extractFromUrl } from './input/urlExtractor.js';
 import { runOcr, buildSearchKeywords } from './ocr/tesseractEngine.js';
 import { embedImage } from './matching/clipSimilarity.js';
 import { runVisualSearch } from './visualSearch/index.js';
+import { getSupplier } from './suppliers/registry.js';
 
 export * from './types.js';
 export { config } from './config.js';
@@ -60,30 +61,36 @@ export async function findSuppliers(input: FinderInput): Promise<FinderResult> {
     'pipeline: visual search done',
   );
 
-  // Steps 5–6 stop: supplier modules not yet wired — but we can at least
-  // surface any URL that matched a supplier domain during visual search.
   const targets: SupplierName[] =
     input.suppliers && input.suppliers.length > 0 ? input.suppliers : [...SUPPLIER_NAMES];
 
-  const results: SupplierResponse[] = targets.map((supplier): SupplierResponse => {
-    const hits = visual.bySupplier.get(supplier) ?? [];
-    if (hits.length === 0) {
-      return {
-        supplier,
-        status: 'NOT_AVAILABLE',
-        reason: 'no visual match — supplier crawler pending',
+  // Run every registered supplier in parallel — Promise.allSettled guarantees
+  // a slow/failing supplier can't block the rest of the pipeline.
+  const settled = await Promise.allSettled(
+    targets.map(async (name): Promise<SupplierResponse> => {
+      const impl = getSupplier(name);
+      if (!impl) {
+        return {
+          supplier: name,
+          status: 'NOT_AVAILABLE',
+          reason: 'crawler not implemented yet',
+        };
+      }
+      const perSupplierInput = {
+        ...search,
+        candidates: visual.bySupplier.get(name) ?? [],
       };
-    }
-    const top = hits[0]!;
-    // Confidence is a placeholder (engine-based rank only) until Step 5
-    // plugs the CLIP validation on the candidate page's main image.
+      return impl.find(perSupplierInput);
+    }),
+  );
+
+  const results: SupplierResponse[] = settled.map((s, i) => {
+    if (s.status === 'fulfilled') return s.value;
     return {
-      supplier,
-      status: 'FOUND',
-      confidence: 60,
-      productUrl: top.url,
-      title: top.title ?? supplier,
-      ...(top.thumbnail ? { thumbnail: top.thumbnail } : {}),
+      supplier: targets[i]!,
+      status: 'ERROR',
+      error: s.reason instanceof Error ? s.reason.message : String(s.reason),
+      reason: 'unknown',
     };
   });
 

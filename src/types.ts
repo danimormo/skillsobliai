@@ -61,6 +61,12 @@ export interface SearchInput {
   ocrText?: string;
   /** CLIP embedding (512-dim Float32Array) of the reference image. */
   embedding?: Float32Array;
+  /**
+   * Candidate URLs already discovered by reverse-image-search for *this supplier*.
+   * Suppliers should prefer these over running their own native image search.
+   * Populated by the orchestrator from `runVisualSearch().bySupplier`.
+   */
+  candidates?: VisualCandidate[];
   /** Warnings accumulated during preprocessing (e.g. "low-res image"). */
   warnings: string[];
 }
