@@ -20,6 +20,7 @@ import { logger, requestLogger } from './utils/logger.js';
 import { preprocessImage } from './input/imageHandler.js';
 import { extractFromUrl } from './input/urlExtractor.js';
 import { runOcr, buildSearchKeywords } from './ocr/tesseractEngine.js';
+import { embedImage } from './matching/clipSimilarity.js';
 
 export * from './types.js';
 export { config } from './config.js';
@@ -102,11 +103,27 @@ export async function buildSearchInput(
     warnings.push(...pre.warnings);
   }
 
-  const ocr = await runOcr(imagePath);
+  // OCR and CLIP embedding are independent — run them in parallel.
+  const [ocr, embedding] = await Promise.all([
+    runOcr(imagePath),
+    embedImage(imagePath).catch((err) => {
+      log.warn({ err: (err as Error).message }, 'clip embedding failed — visual matching disabled');
+      warnings.push('clip embedding unavailable — will rely on text-based matching only');
+      return undefined;
+    }),
+  ]);
+
   if (!ocr.text) warnings.push('ocr produced no text — relying on visual search only');
   const keywords = buildSearchKeywords(title, ocr.keywords);
 
-  log.debug({ ocrChars: ocr.text.length, keywordCount: keywords.length }, 'ocr done');
+  log.debug(
+    {
+      ocrChars: ocr.text.length,
+      keywordCount: keywords.length,
+      embeddingDim: embedding?.length ?? 0,
+    },
+    'input stage done',
+  );
 
   return {
     requestId,
@@ -116,6 +133,7 @@ export async function buildSearchInput(
     ...(title ? { title } : {}),
     keywords,
     ...(ocr.text ? { ocrText: ocr.text } : {}),
+    ...(embedding ? { embedding } : {}),
     warnings,
   };
 }
