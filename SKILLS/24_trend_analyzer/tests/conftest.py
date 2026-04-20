@@ -30,7 +30,21 @@ for _sub in (
     "normalize.url",
     "normalize.image",
     "providers",
+    "providers._browser",
     "providers.google_trends",
+    "providers.meta_ads",
+    "providers.tiktok",
+    "providers.shopify_saturation",
+    "providers.aliexpress",
+    "providers.google_shopping",
+    "analysis",
+    "analysis.scoring",
+    "analysis.seasonality",
+    "generate",
+    "generate.creatives",
+    "report",
+    "report.markdown_out",
+    "report.json_out",
 ):
     _mod = importlib.import_module(f"SKILLS.24_trend_analyzer.{_sub}")
     sys.modules.setdefault(f"trend_analyzer.{_sub}", _mod)

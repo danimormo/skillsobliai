@@ -1,0 +1,28 @@
+{
+  "code": 0,
+  "data": {
+    "list": [
+      {
+        "hashtag_name": "miniwafflemaker",
+        "rank": 12,
+        "rank_diff": 45.5,
+        "publish_cnt": 18500,
+        "country_code": "US"
+      },
+      {
+        "hashtag_name": "wafflemaker",
+        "rank": 30,
+        "rank_diff": 12.0,
+        "publish_cnt": 8500,
+        "country_code": "US"
+      },
+      {
+        "hashtag_name": "waffle",
+        "rank": 45,
+        "rank_diff": -3.0,
+        "publish_cnt": 44000,
+        "country_code": "US"
+      }
+    ]
+  }
+}
