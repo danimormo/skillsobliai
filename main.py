@@ -69,6 +69,7 @@ _SKILL_ROUTES = [
     ("SKILLS.21_smart_scorer.router", "/api/skills/smart-scorer"),
     ("SKILLS.22_saturation_detector.router", "/api/skills/saturation-detector"),
     ("SKILLS.23_supplier_checker.router", "/api/skills/supplier-checker"),
+    ("SKILLS.24_trend_analyzer.router", "/api/skills/trend-analyzer"),
 ]
 
 for module_path, prefix in _SKILL_ROUTES:

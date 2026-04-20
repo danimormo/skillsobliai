@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     VERTEX_IMAGE_MODEL: str = "imagegeneration@006"
     VERTEX_VIDEO_MODEL: str = "veo-002"
 
+    # ── TREND ANALYZER (SKILL 24) ────────────────────────────────
+    TREND_ANALYZER_COST_CAP_USD: float = 0.05
+    TREND_ANALYZER_PLAYWRIGHT_HEADLESS: bool = True
+
     class Config:
         env_file = ".env"
 
