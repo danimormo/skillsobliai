@@ -1,6 +1,7 @@
 import { newStealthContext, detectCaptcha, humanDelay } from '../utils/browser.js';
 import { requestLogger } from '../utils/logger.js';
 import { config } from '../config.js';
+import { getDomainLimiter } from '../utils/rateLimiter.js';
 import type { SearchInput, VisualCandidate } from '../types.js';
 import { extractAnchors } from './candidates.js';
 
@@ -20,6 +21,16 @@ const PAGE_READY_TIMEOUT = 15000;
  */
 export async function googleLensSearch(input: SearchInput): Promise<VisualCandidate[]> {
   const log = requestLogger(input.requestId).child({ stage: 'googleLens' });
+  const limiter = getDomainLimiter('lens.google.com');
+  return limiter.schedule({ expiration: config.supplierTimeoutMs }, () =>
+    runGoogleLensSearch(input, log),
+  );
+}
+
+async function runGoogleLensSearch(
+  input: SearchInput,
+  log: ReturnType<typeof requestLogger>,
+): Promise<VisualCandidate[]> {
   const ctx = await newStealthContext();
   const page = await ctx.newPage();
   const started = Date.now();
