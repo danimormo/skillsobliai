@@ -19,6 +19,16 @@ if str(_REPO_ROOT) not in sys.path:
 _PKG = importlib.import_module("SKILLS.24_trend_analyzer")
 sys.modules.setdefault("trend_analyzer", _PKG)
 
-for _sub in ("schemas", "cost_tracker", "cache", "service"):
+for _sub in (
+    "schemas",
+    "cost_tracker",
+    "cache",
+    "service",
+    "llm",
+    "normalize",
+    "normalize.text",
+    "normalize.url",
+    "normalize.image",
+):
     _mod = importlib.import_module(f"SKILLS.24_trend_analyzer.{_sub}")
     sys.modules.setdefault(f"trend_analyzer.{_sub}", _mod)

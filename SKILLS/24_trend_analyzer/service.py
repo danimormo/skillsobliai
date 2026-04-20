@@ -1,9 +1,9 @@
-"""Trend Analyzer skill — Phase 1 skeleton.
+"""Trend Analyzer skill — Phase 2a (normalizers wired).
 
-Orchestrates normalization + tier-1 providers + scoring + LLM creatives.
-Phase 2 will wire the real providers; for now this module exposes the
-skeleton class and argument-validation so the router can be mounted and
-return a structured empty report without crashing.
+Phase 2b will plug in providers (trends, meta ads, tiktok, shopify, ...);
+for now we normalize the input into a ProductFingerprint and return an
+otherwise-empty scaffold so the fingerprint is already observable via
+``/api/skills/trend-analyzer/run``.
 """
 
 from __future__ import annotations
@@ -16,7 +16,10 @@ from core.errors import InvalidParamsError
 from core.skill_interface import BaseSkill, SkillContext, SkillResult
 
 from . import cache
-from .cost_tracker import tracker
+from .cost_tracker import CostTracker, tracker
+from .normalize.image import normalize_image
+from .normalize.text import normalize_text
+from .normalize.url import normalize_url
 from .schemas import (
     ProductFingerprint,
     SubScore,
@@ -30,7 +33,6 @@ logger = logging.getLogger(__name__)
 SKILL_NAME = "trend-analyzer"
 
 
-# Sub-score weights (must sum to 1.0)
 WEIGHTS: dict[str, float] = {
     "momentum": 0.30,
     "saturation": 0.25,
@@ -56,9 +58,44 @@ def _validate_input(inp: TrendAnalyzerInput) -> None:
         )
 
 
+async def _resolve_fingerprint(
+    inp: TrendAnalyzerInput, cost: CostTracker
+) -> ProductFingerprint:
+    """Dispatch to the right normalizer, with cache for text inputs only.
+
+    URL and image normalizers could in principle be cached too, but since the
+    LLM cost is always paid on cache miss and the payload is small, we cache
+    the resulting fingerprint keyed by the canonical input string.
+    """
+    cache_key = inp.text or str(inp.url) or str(inp.image_url) or "<b64>"
+
+    if not inp.no_cache:
+        hit = await cache.get("fingerprint", cache_key)
+        if hit is not None:
+            try:
+                return ProductFingerprint.model_validate(hit)
+            except Exception:
+                logger.warning("fingerprint cache corrupt for key=%s", cache_key)
+
+    if inp.text:
+        fp = await normalize_text(inp.text, cost)
+    elif inp.url:
+        fp = await normalize_url(str(inp.url), cost)
+    else:
+        fp = await normalize_image(
+            image_url=str(inp.image_url) if inp.image_url else None,
+            image_b64=inp.image_b64,
+            cost=cost,
+        )
+
+    if not inp.no_cache:
+        await cache.set("fingerprint", cache_key, fp.model_dump())
+    return fp
+
+
 class TrendAnalyzerSkill(BaseSkill[TrendAnalyzerInput, TrendAnalyzerOutput]):
     name = SKILL_NAME
-    version = "0.1.0"
+    version = "0.2.0"
     description = "Full-stack trend / saturation / creative analysis for dropshippers."
     consumes_credits = True
     credit_cost = 3
@@ -72,22 +109,14 @@ class TrendAnalyzerSkill(BaseSkill[TrendAnalyzerInput, TrendAnalyzerOutput]):
         with tracker(
             cap_usd=settings.TREND_ANALYZER_COST_CAP_USD, force=input.force
         ) as cost:
-            # ── Phase 1 placeholder: return an empty report ─────────
-            # Phase 2 will fill: normalize → providers → scoring → creatives.
-            fingerprint = ProductFingerprint(
-                primary_keyword=(input.text or "").strip() or "pending",
-                source_kind=(
-                    "text" if input.text else "url" if input.url else "image"
-                ),
-                raw_input=str(input.text or input.url or input.image_url or "<b64>"),
-            )
+            fingerprint = await _resolve_fingerprint(input, cost)
 
             sub_scores = [
                 SubScore(
                     name=n,  # type: ignore[arg-type]
                     value=0.0,
                     weight=WEIGHTS[n],
-                    explanation="Phase 2: not yet implemented.",
+                    explanation="Phase 2b: providers not yet implemented.",
                 )
                 for n in WEIGHTS
             ]
@@ -96,16 +125,12 @@ class TrendAnalyzerSkill(BaseSkill[TrendAnalyzerInput, TrendAnalyzerOutput]):
                 fingerprint=fingerprint,
                 score=0.0,
                 verdict="WAIT",
-                rationale="Skill skeleton only — providers land in Phase 2.",
+                rationale="Normalization done; trend/saturation providers pending.",
                 sub_scores=sub_scores,
                 cost=cost.snapshot(),
-                warnings=["Phase 1 skeleton — no live data yet."],
+                warnings=["Phase 2a — providers still pending."],
             )
-
             output = TrendAnalyzerOutput(report=report, markdown="")
-
-            if not input.no_cache:
-                await cache.set("fingerprint", fingerprint.primary_keyword, fingerprint.model_dump())
 
         elapsed_ms = int((time.perf_counter() - start) * 1000)
         return SkillResult(
