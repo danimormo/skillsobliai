@@ -47,6 +47,12 @@ export interface SearchInput {
   imagePath: string;
   /** Source URL when inputType === 'url'. */
   originalUrl?: string;
+  /**
+   * Public URL of the reference image, if available.
+   * Required by Yandex / Bing reverse search (they don't accept local uploads).
+   * Google Lens uses it when present, otherwise falls back to file upload.
+   */
+  sourceImageUrl?: string;
   /** Extracted product title (from og:title / <h1> / Google Lens "best guess"). */
   title?: string;
   /** Ranked keywords for text-based supplier search. */
