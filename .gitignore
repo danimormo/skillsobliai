@@ -16,3 +16,9 @@ build/
 node_modules/
 trailer/out/
 trailer/.remotion/
+
+# Reference material (analysis only, not shipped)
+trailer/public/reference/*.mp4
+trailer/public/reference/*.mov
+trailer/public/reference/*.webm
+trailer/public/reference/frames/
