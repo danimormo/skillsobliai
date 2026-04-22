@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "remotion studio",
+    "build": "remotion render Act1 out/act1.mp4",
+    "still": "remotion still Act1 out/act1.png --frame=30"
   },
   "keywords": [],
   "author": "",
@@ -21,9 +24,10 @@
     "remotion": "^4.0.451"
   },
   "devDependencies": {
+    "@puppeteer/browsers": "^2.13.0",
     "@types/node": "^25.6.0",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "typescript": "^6.0.3"
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "typescript": "^5.9.3"
   }
 }
